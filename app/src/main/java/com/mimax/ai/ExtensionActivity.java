@@ -106,14 +106,14 @@ public class ExtensionActivity extends Activity {
             card.addView(text("ID: "+item.id+" | API: "+item.manifest.optInt("apiVersion"),12,0xFF64748B));
             card.addView(text(item.manifest.optString("description","إضافة Mi_Max"),12,0xFF475569));
             card.addView(button(item.enabled?"تعطيل الإضافة":"تفعيل الإضافة",()->{
-                try{ engine.setEnabled(item.id,!item.enabled); refresh(); toast(item.enabled?"تم تعطيل الإضافة":"تم تفعيل الإضافة"); }
+                try{ engine.setEnabled(item.id,!item.enabled); MainActivity.extensionThemeChanged=true; refresh(); toast(item.enabled?"تم تعطيل الإضافة":"تم تفعيل الإضافة"); }
                 catch(Exception e){ toast("تعذر التفعيل: "+message(e)); }
             }));
             card.addView(button("تصدير نسخة .mt1",()->exportPackage(item)));
             card.addView(button("حذف الإضافة",()->new AlertDialog.Builder(this)
                     .setTitle("حذف "+item.name+"؟").setMessage("سيتم حذف ملفات هذه الإضافة.")
                     .setNegativeButton("إلغاء",null).setPositiveButton("حذف",(d,w)->{
-                        try{engine.delete(item.id);refresh();toast("تم الحذف");}
+                        try{engine.delete(item.id);MainActivity.extensionThemeChanged=true;refresh();toast("تم الحذف");}
                         catch(Exception e){toast(message(e));}
                     }).show()));
             list.addView(card);
