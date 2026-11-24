@@ -30,6 +30,9 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Validate PC Bridge Python
+        run: python -m py_compile pc-agent/mimax_pc_agent.py && python pc-agent/mimax_pc_agent.py --help
+
       - name: Build Debug APK
         run: gradle --no-daemon :app:assembleDebug
 
