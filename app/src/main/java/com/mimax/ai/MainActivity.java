@@ -1581,6 +1581,7 @@ public class MainActivity extends Activity {
         p.addView(row("PC", "اتصال الكمبيوتر", "ADB وFastboot عبر الكمبيوتر على نفس الشبكة", v -> startActivity(new Intent(MainActivity.this, RemotePcActivity.class))));
         p.addView(row("BACKUP", "النسخ الاحتياطي", "تصدير واستعادة المحادثات والذاكرة والإعدادات", v -> startActivity(new Intent(MainActivity.this, BackupActivity.class))));
         p.addView(row("DEVICE", "قدرات الجهاز", "معمارية Android وABI وRoot وADB", v -> startActivity(new Intent(MainActivity.this, CapabilityActivity.class))));
+        p.addView(row("PLUGINS", "إدارة الإضافات", "استيراد وإزالة حزم .mt1", v -> startActivity(new Intent(MainActivity.this, ExtensionManagerActivity.class))));
         p.addView(row("UI", "المظهر", (style == 1 ? "زجاج سائل" : style == 2 ? "Material 3" : "عادي") + " — " + th.nameAr, v -> openSub("look")));
         p.addView(row("DEV", "المطور والشكاوى", "محمد السعيد علي", v -> openSub("dev")));
         if (Store.flag("devOpts", false)) p.addView(row("DEV+", "خيارات المطور", "ألوان مخصصة لكل عنصر", v -> openSub("devopts")));
