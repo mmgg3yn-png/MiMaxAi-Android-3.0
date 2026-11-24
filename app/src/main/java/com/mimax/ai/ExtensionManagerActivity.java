@@ -138,8 +138,11 @@ public class ExtensionManagerActivity extends Activity {
         String version = manifest.optString("version", "");
         if (!id.matches("[A-Za-z0-9._-]{2,64}")) throw new Exception("معرّف الإضافة غير صالح.");
         if (name.trim().isEmpty() || version.trim().isEmpty()) throw new Exception("الاسم والإصدار مطلوبان.");
-        if (!"declarative".equals(manifest.optString("runtime", "declarative")))
-            throw new Exception("نوع التشغيل غير مدعوم في مدير الإضافات الآمن الحالي.");
+        String runtime = manifest.optString("runtime", "declarative");
+        if (!"declarative".equals(runtime)
+                && !("native".equals(runtime) && "mimax.logo.bin.extractor".equals(id)
+                && "com.mimax.ai.LogoBinExtractorActivity".equals(manifest.optString("entrypoint", ""))))
+            throw new Exception("نوع التشغيل غير مدعوم؛ يسمح فقط بامتداد Logo.bin المدمج.");
         File target = new File(root, id);
         if (target.exists()) deleteTree(target);
         if (!stage.renameTo(target)) throw new Exception("تعذر تثبيت الإضافة.");
@@ -186,6 +189,13 @@ public class ExtensionManagerActivity extends Activity {
                 desc.setText(m.optString("description", "بدون وصف"));
                 desc.setTextColor(Theme.get(Store.theme()).mut);
                 card.addView(desc);
+                if ("mimax.logo.bin.extractor".equals(m.optString("id", ""))) {
+                    Button open = new Button(this);
+                    open.setText("فتح أداة فك logo.bin");
+                    open.setAllCaps(false);
+                    card.addView(open);
+                    open.setOnClickListener(v -> startActivity(new Intent(this, LogoBinExtractorActivity.class)));
+                }
                 Button remove = new Button(this);
                 remove.setText("إزالة الإضافة");
                 remove.setAllCaps(false);
