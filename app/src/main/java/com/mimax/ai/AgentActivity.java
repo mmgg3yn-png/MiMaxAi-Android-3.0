@@ -1,0 +1,278 @@
+package com.mimax.ai;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.net.Uri;
+import android.os.Bundle;
+import android.view.Gravity;
+import android.view.View;
+import android.widget.Button;
+import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
+import android.widget.TextView;
+import android.widget.Toast;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
+
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+
+public class AgentActivity extends Activity {
+    private static final int PICK_FILE = 71;
+    private EditText task;
+    private TextView output;
+    private Button apply;
+    private String attachedName = "";
+    private String attachedText = "";
+    private JSONArray pending = new JSONArray();
+    private File workspace;
+
+    private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
+
+    @Override public void onCreate(Bundle state) {
+        super.onCreate(state);
+        workspace = new File(getFilesDir(), "workspace");
+        if (!workspace.exists()) workspace.mkdirs();
+        getWindow().setStatusBarColor(0xFF17212D);
+        getWindow().setNavigationBarColor(0xFF17212D);
+
+        LinearLayout root = new LinearLayout(this);
+        root.setOrientation(LinearLayout.VERTICAL);
+        root.setPadding(dp(12), dp(8), dp(12), dp(8));
+        root.setBackgroundColor(0xFFF4F6F8);
+        TextView title = new TextView(this);
+        title.setText("Mi_Max Ai Agent");
+        title.setTextSize(20);
+        title.setTextColor(0xFF17212D);
+        title.setGravity(Gravity.CENTER_VERTICAL);
+        root.addView(title, new LinearLayout.LayoutParams(-1, dp(48)));
+        TextView info = new TextView(this);
+        info.setText("وكيل برمجي يعمل بنموذج OpenRouter. يستطيع قراءة ملفات مساحة العمل وإنشاء أو تعديل ملفات فيها بعد موافقتك. لا ينفّذ أوامر النظام أو التفليش.");
+        info.setTextColor(0xFF536273);
+        info.setTextSize(13);
+        root.addView(info);
+
+        task = new EditText(this);
+        task.setHint("اكتب المهمة: حلّل ملفاً، أنشئ كوداً، أو عدّل مشروعاً داخل مساحة العمل...");
+        task.setTextSize(14);
+        task.setMinLines(3);
+        task.setGravity(Gravity.TOP | Gravity.START);
+        task.setBackgroundColor(0xFFFFFFFF);
+        task.setPadding(dp(10), dp(8), dp(10), dp(8));
+        LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
+        tp.topMargin = dp(10);
+        root.addView(task, tp);
+
+        Button pick = new Button(this);
+        pick.setText("إرفاق ملف نصي من الجهاز");
+        pick.setAllCaps(false);
+        root.addView(pick, new LinearLayout.LayoutParams(-1, dp(44)));
+        pick.setOnClickListener(v -> pickFile());
+
+        Button send = new Button(this);
+        send.setText("إرسال المهمة إلى الوكيل");
+        send.setAllCaps(false);
+        root.addView(send, new LinearLayout.LayoutParams(-1, dp(46)));
+        send.setOnClickListener(v -> runAgent());
+
+        ScrollView sc = new ScrollView(this);
+        output = new TextView(this);
+        output.setText("مساحة العمل: " + workspace.getAbsolutePath() + "\nارفق ملفاً أو اكتب مهمة ثم أرسلها.");
+        output.setTextColor(0xFF17212D);
+        output.setTextSize(13);
+        output.setTextIsSelectable(true);
+        output.setPadding(dp(10), dp(10), dp(10), dp(10));
+        output.setBackgroundColor(0xFFFFFFFF);
+        sc.addView(output);
+        LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, 0, 1);
+        sp.topMargin = dp(8);
+        root.addView(sc, sp);
+
+        apply = new Button(this);
+        apply.setText("اعتماد التغييرات وحفظ الملفات");
+        apply.setAllCaps(false);
+        apply.setEnabled(false);
+        root.addView(apply, new LinearLayout.LayoutParams(-1, dp(48)));
+        apply.setOnClickListener(v -> applyActions());
+
+        Button back = new Button(this);
+        back.setText("العودة إلى Mi_Max Ai");
+        back.setAllCaps(false);
+        root.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
+        back.setOnClickListener(v -> finish());
+    }
+
+    private void pickFile() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.setType("text/*");
+        i.addCategory(Intent.CATEGORY_OPENABLE);
+        try { startActivityForResult(i, PICK_FILE); }
+        catch (Exception e) { toast("تعذر فتح منتقي الملفات"); }
+    }
+
+    @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != PICK_FILE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        Uri uri = data.getData();
+        try {
+            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
+        } catch (Exception ignored) { }
+        try {
+            InputStream in = getContentResolver().openInputStream(uri);
+            byte[] buf = new byte[8192];
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            int n; while ((n = in.read(buf)) != -1 && out.size() < 100 * 1024) out.write(buf, 0, n);
+            in.close();
+            attachedText = new String(out.toByteArray(), "UTF-8");
+            attachedName = uri.getLastPathSegment() == null ? "attached.txt" : uri.getLastPathSegment();
+            toast("تم إرفاق الملف: " + attachedName);
+        } catch (Exception e) { toast("تعذر قراءة الملف"); }
+    }
+
+    private String snapshot() {
+        StringBuilder b = new StringBuilder();
+        ArrayList<File> files = new ArrayList<>();
+        collect(workspace, files);
+        int total = 0;
+        for (File f : files) {
+            if (files.size() > 20) break;
+            String rel = workspace.toURI().relativize(f.toURI()).getPath();
+            b.append("\n--- ").append(rel).append(" ---\n");
+            if (f.length() > 24 * 1024 || total > 100 * 1024) {
+                b.append("[ملف غير نصي أو كبير؛ لم يُضمَّن محتواه]\n");
+                continue;
+            }
+            try {
+                FileInputStream in = new FileInputStream(f);
+                byte[] data = new byte[(int) f.length()];
+                int n = in.read(data); in.close();
+                String text = new String(data, 0, Math.max(0, n), "UTF-8");
+                if (text.indexOf(0) >= 0) { b.append("[محتوى ثنائي]\n"); continue; }
+                b.append(text).append('\n');
+                total += n;
+            } catch (Exception e) { b.append("[تعذرت القراءة]\n"); }
+        }
+        if (files.isEmpty()) b.append("\n[مساحة العمل فارغة]");
+        return b.toString();
+    }
+
+    private void collect(File dir, ArrayList<File> out) {
+        if (out.size() >= 20) return;
+        File[] list = dir.listFiles();
+        if (list == null) return;
+        for (File f : list) {
+            if (out.size() >= 20) return;
+            if (f.isDirectory()) collect(f, out); else out.add(f);
+        }
+    }
+
+    private void runAgent() {
+        String request = task.getText().toString().trim();
+        if (request.isEmpty()) { toast("اكتب المهمة أولاً"); return; }
+        if (Store.key().isEmpty()) { toast("أضف مفتاح OpenRouter من الإعدادات أولاً"); return; }
+        output.setText("الوكيل يحلل المهمة وملفات مساحة العمل...");
+        apply.setEnabled(false);
+        pending = new JSONArray();
+        new Thread(() -> {
+            try {
+                JSONArray msgs = new JSONArray();
+                JSONObject sys = new JSONObject();
+                sys.put("role", "system");
+                sys.put("content",
+                        "أنت وكيل برمجي داخل تطبيق Mi_Max Ai. حلّل الملفات والمهمة. لا تدّع تنفيذ شيء. أعد JSON صالحاً فقط بالشكل: "
+                        + "{\"reply\":\"شرح عربي موجز\",\"actions\":[{\"type\":\"write_file\",\"path\":\"relative/path\",\"content\":\"full file content\"}]}. "
+                        + "أنشئ ملفات كاملة أو تعديلات كاملة فقط عند الحاجة. لا تستخدم مسارات مطلقة أو .. ولا تحذف ملفات. "
+                        + "لا تضف أوامر خطرة أو أوامر تفليش. إذا لم تكن متأكداً فاطلب معلومات بدلاً من التخمين. "
+                        + "لا تضع Markdown fences حول JSON.");
+                msgs.put(sys);
+                JSONObject user = new JSONObject();
+                user.put("role", "user");
+                String context = "المهمة: " + request + "\n\nملفات مساحة العمل الحالية:" + snapshot();
+                if (!attachedText.isEmpty()) context += "\n\nالملف المرفق (" + attachedName + "):\n" + attachedText;
+                user.put("content", context);
+                msgs.put(user);
+                String model = Models.resolve(Store.model());
+                String response = Api.chat(Store.key(), model, msgs, Math.min(0.4, Store.temp()), false, null, null);
+                JSONObject parsed = parse(response);
+                String reply = parsed.optString("reply", response);
+                JSONArray actions = parsed.optJSONArray("actions");
+                JSONArray safe = new JSONArray();
+                if (actions != null) {
+                    for (int i = 0; i < actions.length() && i < 10; i++) {
+                        JSONObject a = actions.optJSONObject(i);
+                        if (a == null || !"write_file".equals(a.optString("type"))) continue;
+                        String path = a.optString("path", "");
+                        String content = a.optString("content", "");
+                        if (validPath(path) && content.length() <= 500000) {
+                            JSONObject clean = new JSONObject();
+                            clean.put("type", "write_file"); clean.put("path", path); clean.put("content", content);
+                            safe.put(clean);
+                        }
+                    }
+                }
+                final JSONArray finalActions = safe;
+                final String finalReply = reply;
+                runOnUiThread(() -> {
+                    pending = finalActions;
+                    output.setText(finalReply + (pending.length() > 0 ? "\n\nملفات مقترحة للتعديل:" : "\n\nلا توجد تغييرات ملفات معلّقة."));
+                    for (int i = 0; i < pending.length(); i++) {
+                        JSONObject a = pending.optJSONObject(i);
+                        output.append("\n\n• " + a.optString("path") + " (" + a.optString("content").length() + " حرف)");
+                    }
+                    apply.setEnabled(pending.length() > 0);
+                });
+            } catch (Exception e) {
+                String msg = e.getMessage() == null ? "تعذر تنفيذ المهمة" : e.getMessage();
+                runOnUiThread(() -> output.setText("فشل الوكيل: " + msg));
+            }
+        }).start();
+    }
+
+    private JSONObject parse(String text) throws Exception {
+        int start = text.indexOf('{');
+        int end = text.lastIndexOf('}');
+        if (start < 0 || end <= start) throw new Exception("النموذج لم يُرجع JSON صالحاً. أعد المحاولة.");
+        return new JSONObject(text.substring(start, end + 1));
+    }
+
+    private boolean validPath(String path) {
+        if (path == null || path.trim().isEmpty() || path.startsWith("/") || path.contains("..") || path.contains("\\") || path.length() > 180) return false;
+        File f = new File(workspace, path);
+        try {
+            String base = workspace.getCanonicalPath();
+            String full = f.getCanonicalPath();
+            return full.startsWith(base + File.separator) || full.equals(base);
+        } catch (Exception e) { return false; }
+    }
+
+    private void applyActions() {
+        int done = 0;
+        try {
+            for (int i = 0; i < pending.length(); i++) {
+                JSONObject a = pending.getJSONObject(i);
+                String path = a.getString("path");
+                if (!validPath(path)) continue;
+                File f = new File(workspace, path);
+                File parent = f.getParentFile();
+                if (parent != null && !parent.exists()) parent.mkdirs();
+                FileOutputStream out = new FileOutputStream(f, false);
+                out.write(a.getString("content").getBytes("UTF-8"));
+                out.close();
+                done++;
+            }
+            pending = new JSONArray();
+            apply.setEnabled(false);
+            output.append("\n\nتم حفظ " + done + " ملف داخل مساحة العمل الخاصة بالتطبيق.");
+            toast("تم تطبيق التغييرات");
+        } catch (Exception e) { toast("فشل الحفظ: " + e.getMessage()); }
+    }
+
+    private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_SHORT).show(); }
+}
