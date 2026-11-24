@@ -244,7 +244,7 @@ public final class ExtensionScriptRuntime {
 
         public void openTool(String tool) throws Exception {
             require("app_navigation");
-            String[] allowed = {"settings", "extensions", "logo_bin", "terminal", "browser", "agent", "capabilities", "backup", "pc_bridge"};
+            String[] allowed = {"home", "extensions", "logo_bin", "terminal", "browser", "agent", "capabilities", "backup", "pc_bridge"};
             boolean ok = false;
             for (String name : allowed) if (name.equals(tool)) ok = true;
             if (!ok) throw new Exception("Tool is not available: " + tool);
@@ -252,7 +252,7 @@ public final class ExtensionScriptRuntime {
                 if (activity.isFinishing()) return;
                 Class<?> target = null;
                 switch (tool) {
-                    case "settings": target = SettingsActivity.class; break;
+                    case "home": target = MainActivity.class; break;
                     case "extensions": target = ExtensionManagerActivity.class; break;
                     case "logo_bin": target = LogoBinExtractorActivity.class; break;
                     case "terminal": target = TerminalActivity.class; break;
