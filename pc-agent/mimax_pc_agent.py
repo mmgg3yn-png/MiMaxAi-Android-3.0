@@ -4,6 +4,8 @@ Uses only Python standard library. Keep this service on a trusted private LAN.
 """
 import argparse
 import json
+import io
+import zipfile
 import os
 import re
 import secrets
@@ -52,8 +54,14 @@ def execute(command, confirm):
         if args[1:] in (["--version"], ["-version"], ["-v"]):
             pass
         elif tool == "gradle" and args[1:] in (["--no-daemon", ":app:assembleDebug"], ["--no-daemon", "assembleDebug"]):
-            if not (ROOT / "settings.gradle").is_file() or not (ROOT / "app").is_dir():
-                raise ValueError("Extract an Android project into pc-agent/workspace first.")
+            candidates = []
+            if (ROOT / "settings.gradle").is_file() and (ROOT / "app").is_dir():
+                candidates.append(ROOT)
+            for child in ROOT.iterdir():
+                if child.is_dir() and (child / "settings.gradle").is_file() and (child / "app").is_dir():
+                    candidates.append(child)
+            if len(candidates) != 1:
+                raise ValueError("Put one Android project (settings.gradle + app folder) in workspace.")
             timeout = 900
         else:
             raise ValueError("Only version checks and the approved Gradle Debug build are allowed.")
@@ -103,7 +111,16 @@ def execute(command, confirm):
     else:
         raise ValueError("Command not supported by the PC Bridge.")
 
-    p = subprocess.run([exe] + args[1:], cwd=str(ROOT), capture_output=True, text=True, timeout=timeout, shell=False)
+    workdir = ROOT
+    if tool == "gradle":
+        candidates = []
+        if (ROOT / "settings.gradle").is_file() and (ROOT / "app").is_dir():
+            candidates.append(ROOT)
+        for child in ROOT.iterdir():
+            if child.is_dir() and (child / "settings.gradle").is_file() and (child / "app").is_dir():
+                candidates.append(child)
+        workdir = candidates[0]
+    p = subprocess.run([exe] + args[1:], cwd=str(workdir), capture_output=True, text=True, timeout=timeout, shell=False)
     output = (p.stdout or "") + (("\n" + p.stderr) if p.stderr else "")
     return {"ok": p.returncode == 0, "exit_code": p.returncode, "output": output[-20000:]}
 
@@ -129,14 +146,43 @@ class Handler(BaseHTTPRequestHandler):
             "workspace": str(ROOT), "platform": os.name
         })
     def do_POST(self):
-        if self.path != "/run":
+        if self.path not in ("/run", "/upload"):
             return self.send_json(404, {"ok": False, "error": "Not found"})
         if not self.authorized():
             return self.send_json(401, {"ok": False, "error": "Invalid token"})
         try:
             n = int(self.headers.get("Content-Length", "0"))
-            if n < 1 or n > 100000:
-                raise ValueError("Invalid request size.")
+            if n < 1:
+                raise ValueError("Empty request.")
+            if self.path == "/upload":
+                if n > 100 * 1024 * 1024:
+                    raise ValueError("ZIP upload limit is 100MB.")
+                raw = self.rfile.read(n)
+                count = 0
+                total = 0
+                with zipfile.ZipFile(io.BytesIO(raw)) as archive:
+                    for item in archive.infolist():
+                        count += 1
+                        if count > 2000:
+                            raise ValueError("ZIP contains more than 2000 entries.")
+                        name = item.filename.replace("\\", "/")
+                        if name.startswith("/") or name.startswith("../") or "/../" in name or name == ".." or ":" in name:
+                            raise ValueError("Unsafe ZIP entry path.")
+                        target = (ROOT / name).resolve()
+                        if ROOT.resolve() not in target.parents and target != ROOT.resolve():
+                            raise ValueError("ZIP entry escapes workspace.")
+                        if item.is_dir():
+                            target.mkdir(parents=True, exist_ok=True)
+                            continue
+                        total += item.file_size
+                        if total > 100 * 1024 * 1024:
+                            raise ValueError("Uncompressed ZIP limit is 100MB.")
+                        target.parent.mkdir(parents=True, exist_ok=True)
+                        with archive.open(item) as src, open(target, "wb") as dst:
+                            shutil.copyfileobj(src, dst)
+                return self.send_json(200, {"ok": True, "files": count, "bytes": total, "workspace": str(ROOT)})
+            if n > 100000:
+                raise ValueError("Invalid command request size.")
             data = json.loads(self.rfile.read(n).decode("utf-8"))
             result = execute(str(data.get("command", "")), str(data.get("confirm", "")))
             self.send_json(200, result)
