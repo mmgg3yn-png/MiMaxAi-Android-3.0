@@ -346,7 +346,7 @@ public class MainActivity extends Activity {
 
     Button btn(String t, int bg, int fg, View.OnClickListener l) {
         Button b = new Button(this);
-        b.setText(t);
+        b.setText(L10n.text(this, t));
         b.setAllCaps(false);
         b.setTextColor(fg);
         b.setTextSize(15);
