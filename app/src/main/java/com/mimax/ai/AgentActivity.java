@@ -51,31 +51,35 @@ public class AgentActivity extends Activity {
         super.onCreate(state);
         workspace = new File(getFilesDir(), "workspace");
         if (!workspace.exists()) workspace.mkdirs();
-        getWindow().setStatusBarColor(0xFF17212D);
-        getWindow().setNavigationBarColor(0xFF17212D);
+        Theme appTheme = Theme.get(Store.theme());
+        if (Store.flag("ccOn", false)) appTheme = Theme.custom(appTheme);
+        getWindow().setStatusBarColor(appTheme.base);
+        getWindow().setNavigationBarColor(appTheme.base);
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(12), dp(8), dp(12), dp(8));
-        root.setBackgroundColor(0xFFF4F6F8);
+        root.setBackgroundColor(appTheme.base);
         TextView title = new TextView(this);
         title.setText("Mi_Max Ai Agent");
         title.setTextSize(20);
-        title.setTextColor(0xFF17212D);
+        title.setTextColor(appTheme.tx);
         title.setGravity(Gravity.CENTER_VERTICAL);
         root.addView(title, new LinearLayout.LayoutParams(-1, dp(48)));
         TextView info = new TextView(this);
         info.setText("وكيل برمجي يعمل بنموذج OpenRouter. يستورد مشروع ZIP، يقرأ ملفاته ويقترح تعديلات لا تُحفظ إلا بعد موافقتك. يمكنك رفع مساحة العمل إلى الكمبيوتر وتشغيل بناء Gradle.");
-        info.setTextColor(0xFF536273);
+        info.setTextColor(appTheme.mut);
         info.setTextSize(13);
         root.addView(info);
 
         task = new EditText(this);
         task.setHint("اكتب المهمة: حلّل ملفاً، أنشئ كوداً، أو عدّل مشروعاً داخل مساحة العمل...");
         task.setTextSize(14);
+        task.setTextColor(appTheme.tx);
+        task.setHintTextColor(appTheme.mut);
         task.setMinLines(3);
         task.setGravity(Gravity.TOP | Gravity.START);
-        task.setBackgroundColor(0xFFFFFFFF);
+        task.setBackgroundColor(appTheme.surface);
         task.setPadding(dp(10), dp(8), dp(10), dp(8));
         LinearLayout.LayoutParams tp = new LinearLayout.LayoutParams(-1, -2);
         tp.topMargin = dp(10);
@@ -91,8 +95,9 @@ public class AgentActivity extends Activity {
         pcHost.setSingleLine(true);
         pcHost.setHint("عنوان PC Bridge مثل http://192.168.1.5:8765");
         pcHost.setTextSize(13);
-        pcHost.setTextColor(0xFF17212D);
-        pcHost.setBackgroundColor(0xFFFFFFFF);
+        pcHost.setTextColor(appTheme.tx);
+        pcHost.setHintTextColor(appTheme.mut);
+        pcHost.setBackgroundColor(appTheme.surface);
         pcHost.setPadding(dp(10), 0, dp(10), 0);
         root.addView(pcHost, new LinearLayout.LayoutParams(-1, dp(44)));
 
@@ -100,8 +105,9 @@ public class AgentActivity extends Activity {
         pcToken.setSingleLine(true);
         pcToken.setHint("رمز PC Bridge");
         pcToken.setTextSize(13);
-        pcToken.setTextColor(0xFF17212D);
-        pcToken.setBackgroundColor(0xFFFFFFFF);
+        pcToken.setTextColor(appTheme.tx);
+        pcToken.setHintTextColor(appTheme.mut);
+        pcToken.setBackgroundColor(appTheme.surface);
         pcToken.setPadding(dp(10), 0, dp(10), 0);
         root.addView(pcToken, new LinearLayout.LayoutParams(-1, dp(44)));
 
@@ -126,11 +132,11 @@ public class AgentActivity extends Activity {
         ScrollView sc = new ScrollView(this);
         output = new TextView(this);
         output.setText("مساحة العمل: " + workspace.getAbsolutePath() + "\nارفق ملفاً أو اكتب مهمة ثم أرسلها.");
-        output.setTextColor(0xFF17212D);
+        output.setTextColor(appTheme.tx);
         output.setTextSize(13);
         output.setTextIsSelectable(true);
         output.setPadding(dp(10), dp(10), dp(10), dp(10));
-        output.setBackgroundColor(0xFFFFFFFF);
+        output.setBackgroundColor(appTheme.surface);
         sc.addView(output);
         LinearLayout.LayoutParams sp = new LinearLayout.LayoutParams(-1, 0, 1);
         sp.topMargin = dp(8);
@@ -160,6 +166,9 @@ public class AgentActivity extends Activity {
         back.setAllCaps(false);
         root.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
         back.setOnClickListener(v -> finish());
+
+        // The previous screen built the entire view tree but never attached it to the Activity.
+        setContentView(root);
     }
 
     private void pickFile() {

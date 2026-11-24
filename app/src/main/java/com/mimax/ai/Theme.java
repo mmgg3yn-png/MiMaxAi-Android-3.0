@@ -44,7 +44,7 @@ public final class Theme {
                 Store.cc("b0", b.blobs[0]), Store.cc("b1", b.blobs[1]), Store.cc("b2", b.blobs[2]), Store.cc("b3", b.blobs[3]));
     }
 
-    public static Theme get(int i) { return ALL[(i < 0 || i >= ALL.length) ? 0 : i]; }
+    public static Theme get(int i) { Theme base = ALL[(i < 0 || i >= ALL.length) ? 0 : i]; return Store.flag("ccOn", false) ? custom(base) : base; }
 
     public static int mix(int a, int b, float t) {
         int r = (int) (((a >> 16) & 255) * (1 - t) + ((b >> 16) & 255) * t);

@@ -180,6 +180,12 @@ public class MainActivity extends Activity {
         setTheme(dark ? android.R.style.Theme_DeviceDefault_NoActionBar
                 : android.R.style.Theme_DeviceDefault_Light_NoActionBar);
         super.onCreate(b);
+        String failedExtension = ExtensionState.recoveryId(this);
+        if (!failedExtension.isEmpty()) {
+            startActivity(new Intent(this, ExtensionRecoveryActivity.class));
+            finish();
+            return;
+        }
         colors();
         reload();
         media = new MediaUi(this);
@@ -316,7 +322,7 @@ public class MainActivity extends Activity {
 
     TextView tv(String t, int color, float sp) {
         TextView v = new TextView(this);
-        v.setText(t);
+        v.setText(L10n.text(this, t));
         v.setTextColor(color);
         v.setTextSize(sp);
         return v;
@@ -326,7 +332,7 @@ public class MainActivity extends Activity {
 
     Button flat(String t, View.OnClickListener l) {
         Button b = new Button(this);
-        b.setText(t);
+        b.setText(L10n.text(this, t));
         b.setAllCaps(false);
         b.setTextColor(TX);
         b.setTextSize(20);
@@ -340,7 +346,7 @@ public class MainActivity extends Activity {
 
     Button btn(String t, int bg, int fg, View.OnClickListener l) {
         Button b = new Button(this);
-        b.setText(t);
+        b.setText(L10n.text(this, t));
         b.setAllCaps(false);
         b.setTextColor(fg);
         b.setTextSize(15);
@@ -524,14 +530,14 @@ public class MainActivity extends Activity {
         LinearLayout w = new LinearLayout(this);
         w.setPadding(dp(20), dp(8), dp(20), 0);
         w.addView(e, new LinearLayout.LayoutParams(-1, -2));
-        gb().setTitle(title).setView(w)
-                .setPositiveButton("موافق", (d0, w0) -> cb.on(e.getText().toString()))
-                .setNegativeButton("إلغاء", null).show();
+        gb().setTitle(L10n.text(this, title)).setView(w)
+                .setPositiveButton(L10n.text(this, "موافق"), (d0, w0) -> cb.on(e.getText().toString()))
+                .setNegativeButton(L10n.text(this, "إلغاء"), null).show();
     }
 
     Button small(String t, View.OnClickListener l) {
         Button b = new Button(this);
-        b.setText(t);
+        b.setText(L10n.text(this, t));
         b.setAllCaps(false);
         b.setTextSize(13);
         b.setTextColor(TX);
@@ -546,6 +552,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        ExtensionState.clearActive(this);
         if (tab.equals("files") && files != null && files.pendingPermission) {
             files.pendingPermission = false;
             showFiles();
@@ -593,7 +600,7 @@ public class MainActivity extends Activity {
     }
 
     void header(String t, boolean back, boolean showNew) {
-        title.setText(t);
+        title.setText(L10n.text(this, t));
         backBtn.setVisibility(back ? View.VISIBLE : View.GONE);
         newBtn.setVisibility(showNew ? View.VISIBLE : View.INVISIBLE);
     }
@@ -673,7 +680,7 @@ public class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        root.setLayoutDirection("en".equals(L10n.language(this)) ? View.LAYOUT_DIRECTION_LTR : View.LAYOUT_DIRECTION_RTL);
         root.setFitsSystemWindows(true);
 
         LinearLayout top = new LinearLayout(this);
@@ -716,7 +723,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < 5; i++) {
             final int idx = i;
             Button b = new Button(this);
-            b.setText(names[i]);
+            b.setText(L10n.text(this, names[i]));
             b.setAllCaps(false);
             b.setTextSize(12);
             b.setPadding(0, 0, 0, 0);
@@ -1569,6 +1576,7 @@ public class MainActivity extends Activity {
         selNav(4);
         header("الإعدادات", false, false);
         LinearLayout p = page();
+        p.addView(row("LANG", "لغة التطبيق", "العربية / English", v -> startActivity(new Intent(MainActivity.this, LanguagePackActivity.class))));
         p.addView(row("USR", "الملف الشخصي", Store.profileName().isEmpty() ? "اسم محلي اختياري" : Store.profileName(), v -> openSub("profile")));
         p.addView(row("API", "الذكاء الاصطناعي", Store.hasCustomKey() ? "تستخدم مفتاحك الخاص" : "يعمل بالمفتاح المدمج", v -> openSub("ai")));
         p.addView(row("MDL", "النماذج المجانية", Store.model().isEmpty() ? "اختيار تلقائي" : Store.model(), v -> openSub("models")));
@@ -1580,6 +1588,8 @@ public class MainActivity extends Activity {
         p.addView(row("AGENT", "AI Agent", "تحليل ملفات مساحة العمل وإنشاء تعديلات بموافقتك", v -> startActivity(new Intent(MainActivity.this, AgentActivity.class))));
         p.addView(row("PC", "اتصال الكمبيوتر", "ADB وFastboot عبر الكمبيوتر على نفس الشبكة", v -> startActivity(new Intent(MainActivity.this, RemotePcActivity.class))));
         p.addView(row("BACKUP", "النسخ الاحتياطي", "تصدير واستعادة المحادثات والذاكرة والإعدادات", v -> startActivity(new Intent(MainActivity.this, BackupActivity.class))));
+        p.addView(row("DEVICE", "قدرات الجهاز", "معمارية Android وABI وRoot وADB", v -> startActivity(new Intent(MainActivity.this, CapabilityActivity.class))));
+        p.addView(row("PLUGINS", "إدارة الإضافات", "استيراد وإزالة حزم .mt1", v -> startActivity(new Intent(MainActivity.this, ExtensionManagerActivity.class))));
         p.addView(row("UI", "المظهر", (style == 1 ? "زجاج سائل" : style == 2 ? "Material 3" : "عادي") + " — " + th.nameAr, v -> openSub("look")));
         p.addView(row("DEV", "المطور والشكاوى", "محمد السعيد علي", v -> openSub("dev")));
         if (Store.flag("devOpts", false)) p.addView(row("DEV+", "خيارات المطور", "ألوان مخصصة لكل عنصر", v -> openSub("devopts")));
