@@ -102,40 +102,15 @@ public class Store {
         try { return Double.parseDouble(get("temp", "0.7")); } catch (Exception e) { return 0.7; }
     }
 
-    // ---- الحساب ----
-    public static String session() { return get("session", ""); }
+    // ---- الملف الشخصي المحلي ----
     public static String ns() { return "guest"; }
 
-    /** جلسة Firebase: نخزن UID فقط لربط بيانات الجهاز بحساب Google المصادق عليه. */
-    public static void setGoogleSession(String uid, String displayName, String email) {
-        sp.edit()
-                .putString("session", uid == null ? "" : uid)
-                .putString("googleName", displayName == null ? "" : displayName)
-                .putString("googleEmail", email == null ? "" : email)
-                .apply();
+    public static String profileName() { return get("profileName:guest", ""); }
+    public static void setProfileName(String name) {
+        put("profileName:guest", name == null ? "" : name.trim());
     }
 
-    public static String googleName() { return get("googleName", ""); }
-    public static String googleEmail() { return get("googleEmail", ""); }
-
-    public static String profileName() { return get("profileName:" + ns(), ""); }
-    public static void setProfileName(String name) { put("profileName:" + ns(), name == null ? "" : name.trim()); }
-
-    /** UUID مستقل ثابت لكل حساب، لا يتغير عند تسجيل الدخول مجدداً. */
-    public static String publicId() {
-        String k = "publicId:" + ns();
-        String id = get(k, "");
-        if (id.isEmpty()) {
-            id = UUID.randomUUID().toString();
-            put(k, id);
-        }
-        return id;
-    }
-    public static void setPublicId(String id) {
-        if (id != null && !id.trim().isEmpty()) put("publicId:" + ns(), id.trim());
-    }
-
-    private static String deletedChatsKey() { return "deletedChats:" + ns(); }
+    private static String deletedChatsKey() { return "deletedChats:guest"; }
     public static void markChatDeleted(String id) {
         if (id == null || id.isEmpty()) return;
         try {
@@ -145,27 +120,14 @@ public class Store {
             put(deletedChatsKey(), a.toString());
         } catch (Exception ignored) { }
     }
-    public static ArrayList<String> deletedChatIds() {
-        ArrayList<String> out = new ArrayList<>();
-        try {
-            JSONArray a = new JSONArray(get(deletedChatsKey(), "[]"));
-            for (int i = 0; i < a.length(); i++) out.add(a.getString(i));
-        } catch (Exception ignored) { }
-        return out;
-    }
 
-    public static void logout() {
-        sp.edit().putString("session", "").putString("googleName", "").putString("googleEmail", "").apply();
-    }
-
-    /** يمسح المحادثات والذاكرة والبرمبت والملف الشخصي المحلية فقط. */
+    /** يمسح بيانات المحادثات والذاكرة والبرمبت والملف الشخصي المحلية فقط. */
     public static void clearLocalData() {
         sp.edit()
                 .remove("chats:guest")
                 .remove("mem:guest")
                 .remove("prompt:guest")
                 .remove("profileName:guest")
-                .remove("publicId:guest")
                 .remove("deletedChats:guest")
                 .apply();
     }
