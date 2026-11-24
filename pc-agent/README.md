@@ -15,6 +15,14 @@
 
 ## الأوامر المدعومة
 
+### بيئة التطوير على الكمبيوتر
+- فحص الإصدارات: `python --version`, `node --version`, `npm --version`, `java -version`, `gradle --version`, `git --version`
+- Git للقراءة فقط: `git status`, `git log -5`, `git diff --stat`
+- عرض مجلد العمل: `pwd`, `ls`, `dir`
+- بناء مشروع Android موجود في جذر `workspace`: `gradle --no-daemon :app:assembleDebug`
+
+
+
 - `adb version`, `adb devices`, `adb get-state`
 - `adb shell getprop` أو `adb shell getprop ro.product.device`
 - `adb logcat -d -t 500`
