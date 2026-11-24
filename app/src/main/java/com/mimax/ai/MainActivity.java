@@ -98,6 +98,7 @@ public class MainActivity extends Activity {
     FileScreen files;
     MediaUi media;
     static boolean reopenLook = false, reopenDev = false;
+    static boolean extensionThemeChanged = false;
     int oBubU, oBubA, oTop, oNav, oGlass;
     Typeface appFont;
     ApkInstaller installer;
@@ -172,6 +173,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onCreate(Bundle b) {
         Store.init(this);
+        new ExtensionEngine(this).applyEnabledThemes();
         th = Theme.get(Store.theme());
         if (Store.flag("ccOn", false)) th = Theme.custom(th);
         dark = th.dark;
@@ -546,6 +548,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        if (extensionThemeChanged) { extensionThemeChanged = false; recreate(); return; }
         if (tab.equals("files") && files != null && files.pendingPermission) {
             files.pendingPermission = false;
             showFiles();
@@ -1578,6 +1581,7 @@ public class MainActivity extends Activity {
         p.addView(row("WEB", "المتصفح المدمج", "تصفح المواقع والتنزيلات داخل التطبيق", v -> startActivity(new Intent(MainActivity.this, BrowserActivity.class))));
         p.addView(row("TERM", "Terminal محلي", "أوامر Android داخل مساحة عمل آمنة", v -> startActivity(new Intent(MainActivity.this, TerminalActivity.class))));
         p.addView(row("AGENT", "AI Agent", "تحليل ملفات مساحة العمل وإنشاء تعديلات بموافقتك", v -> startActivity(new Intent(MainActivity.this, AgentActivity.class))));
+        p.addView(row("MT1", "الإضافات وAI Extension Creator", "تثبيت حزم .mt1 وإنشاء إضافات بالذكاء الاصطناعي", v -> startActivity(new Intent(MainActivity.this, ExtensionActivity.class))));
         p.addView(row("PC", "اتصال الكمبيوتر", "ADB وFastboot عبر الكمبيوتر على نفس الشبكة", v -> startActivity(new Intent(MainActivity.this, RemotePcActivity.class))));
         p.addView(row("BACKUP", "النسخ الاحتياطي", "تصدير واستعادة المحادثات والذاكرة والإعدادات", v -> startActivity(new Intent(MainActivity.this, BackupActivity.class))));
         p.addView(row("UI", "المظهر", (style == 1 ? "زجاج سائل" : style == 2 ? "Material 3" : "عادي") + " — " + th.nameAr, v -> openSub("look")));
