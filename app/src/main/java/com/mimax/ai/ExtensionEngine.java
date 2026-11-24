@@ -149,12 +149,10 @@ public final class ExtensionEngine {
             }
         }
         Store.setFlag("ccOn",true);
-        MainActivity.extensionThemeChanged=true;
     }
 
     private void resetTheme() {
         Store.clearCc();
-        MainActivity.extensionThemeChanged=true;
     }
 
     private static JSONObject readJson(File f) throws Exception {
