@@ -95,7 +95,6 @@ public class RemotePcActivity extends Activity {
         return e;
     }
 
-    private android.view.View rootView() { return ((android.view.ViewGroup) findViewById(android.R.id.content)).getChildAt(0); }
 
     private void request(boolean execute) {
         String base = host.getText().toString().trim().replaceAll("/+$", "");
