@@ -169,8 +169,16 @@ public class ExtensionManagerActivity extends Activity {
         if (!id.matches("[A-Za-z0-9._-]{2,64}")) throw new Exception("معرّف الإضافة غير صالح.");
         if (name.trim().isEmpty() || version.trim().isEmpty()) throw new Exception("الاسم والإصدار مطلوبان.");
         String runtime = manifest.optString("runtime", "declarative");
-        if (!"declarative".equals(runtime))
-            throw new Exception("نوع الإضافة غير مدعوم. استخدم صيغة الإضافات التفاعلية declarative.");
+        if (!"declarative".equals(runtime) && !"javascript".equals(runtime))
+            throw new Exception("نوع الإضافة غير مدعوم. استخدم declarative أو javascript.");
+        if ("javascript".equals(runtime)) {
+            JSONObject action = manifest.optJSONObject("action");
+            if (action == null || !"javascript".equals(action.optString("handler", "")))
+                throw new Exception("إضافة JavaScript تحتاج action.handler=javascript.");
+            File script = new File(stage, "main.js");
+            if (!script.isFile() || script.length() == 0 || script.length() > 512 * 1024)
+                throw new Exception("ملف main.js غير موجود أو حجمه غير صالح.");
+        }
         org.json.JSONArray dependencies = manifest.optJSONArray("dependencies");
         if (dependencies != null) for (int i = 0; i < dependencies.length(); i++) {
             String dependency = dependencies.optString(i, "");
