@@ -25,7 +25,7 @@ public class ExtensionDeveloperActivity extends Activity {
         LinearLayout page = new LinearLayout(this);
         page.setOrientation(LinearLayout.VERTICAL); page.setPadding(dp(16),dp(12),dp(16),dp(12)); page.setBackgroundColor(t.base);
         TextView title = new TextView(this); title.setText("منشئ الإضافات"); title.setTextSize(21); title.setTextColor(t.tx); page.addView(title);
-        TextView note = new TextView(this); note.setText("أنشئ قالب إضافة declarative آمن. الإضافات تصف واجهات وإجراءات يدعمها محرك التطبيق؛ لا يتم تشغيل ملفات DEX أو أوامر مجهولة."); note.setTextColor(t.mut); page.addView(note);
+        TextView note = new TextView(this); note.setText("أنشئ إضافة .mt1 تعمل بعد تثبيتها دون إعادة بناء APK. اكتب javascript في خانة المعالج لاستخدام محرك JavaScript المدمج وواجهة API الآمنة."); note.setTextColor(t.mut); page.addView(note);
         EditText id = field("المعرّف: example.my.extension"); page.addView(id);
         EditText name = field("اسم الإضافة"); page.addView(name);
         EditText label = field("عنوان الإجراء"); page.addView(label);
