@@ -38,6 +38,7 @@ public class ExtensionStoreActivity extends Activity {
                     connection = (HttpURLConnection) new URL(value).openConnection();
                     connection.setConnectTimeout(15000); connection.setReadTimeout(20000); connection.setInstanceFollowRedirects(true);
                     connection.connect();
+                    if (!"https".equalsIgnoreCase(connection.getURL().getProtocol())) throw new Exception("تم رفض التحويل إلى اتصال غير آمن.");
                     if (connection.getResponseCode() != 200) throw new Exception("HTTP " + connection.getResponseCode());
                     if (connection.getContentLengthLong() > 20L * 1024 * 1024) throw new Exception("حجم الملف أكبر من 20MB.");
                     InputStream in = connection.getInputStream(); FileOutputStream stream = new FileOutputStream(out);
