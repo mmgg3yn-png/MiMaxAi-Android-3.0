@@ -1,0 +1,3 @@
+Build requested by the project owner for Mi_Max Ai 3.0.
+Source branch: feature/3.0-full-platform
+Requirements: no mandatory login, local optional profile, optional sync.
