@@ -184,7 +184,7 @@ public class AgentActivity extends Activity {
             if (name.toLowerCase().endsWith(".zip")) {
                 importZip(uri);
                 attachedName = name;
-                attachedText = "تم استيراد مشروع ZIP إلى مساحة العمل.\\n" + snapshot();
+                attachedText = "تم استيراد مشروع ZIP إلى مساحة العمل.\n" + snapshot();
                 toast("تم فك المشروع داخل مساحة العمل");
             } else {
                 InputStream in = getContentResolver().openInputStream(uri);
@@ -251,7 +251,7 @@ public class AgentActivity extends Activity {
                 while ((line = reader.readLine()) != null) text.append(line);
                 reader.close(); c.disconnect();
                 JSONObject result = new JSONObject(text.toString());
-                String message = result.optBoolean("ok") ? "تم رفع مساحة العمل. العناصر: " + result.optInt("files") + "\\nيمكنك الآن تشغيل بناء APK على الكمبيوتر." : result.optString("error", "فشل الرفع");
+                String message = result.optBoolean("ok") ? "تم رفع مساحة العمل. العناصر: " + result.optInt("files") + "\nيمكنك الآن تشغيل بناء APK على الكمبيوتر." : result.optString("error", "فشل الرفع");
                 runOnUiThread(() -> output.setText(message));
             } catch (Exception e) {
                 String message = "فشل رفع مساحة العمل: " + (e.getMessage() == null ? "خطأ غير معروف" : e.getMessage());
@@ -283,10 +283,10 @@ public class AgentActivity extends Activity {
                 InputStream response = status < 400 ? c.getInputStream() : c.getErrorStream();
                 BufferedReader reader = new BufferedReader(new InputStreamReader(response, "UTF-8"));
                 StringBuilder text = new StringBuilder(); String line;
-                while ((line = reader.readLine()) != null) text.append(line).append('\\n');
+                while ((line = reader.readLine()) != null) text.append(line).append('\n');
                 reader.close();
                 JSONObject result = new JSONObject(text.toString());
-                String message = result.optString("output", result.optString("error", "لا توجد مخرجات")) + "\\nHTTP " + status + " — exit " + result.optInt("exit_code", -1);
+                String message = result.optString("output", result.optString("error", "لا توجد مخرجات")) + "\nHTTP " + status + " — exit " + result.optInt("exit_code", -1);
                 runOnUiThread(() -> output.setText(message));
             } catch (Exception e) {
                 String message = "فشل البناء عن بعد: " + (e.getMessage() == null ? "خطأ غير معروف" : e.getMessage());
