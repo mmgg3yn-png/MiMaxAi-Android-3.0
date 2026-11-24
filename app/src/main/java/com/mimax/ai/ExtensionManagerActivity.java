@@ -1,6 +1,7 @@
 package com.mimax.ai;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -53,6 +54,16 @@ public class ExtensionManagerActivity extends Activity {
         info.setTextSize(13);
         page.addView(info);
 
+        Button recovery = new Button(this);
+        recovery.setText("وضع الصيانة والإنقاذ");
+        recovery.setAllCaps(false);
+        page.addView(recovery, new LinearLayout.LayoutParams(-1, dp(44)));
+        recovery.setOnClickListener(v -> startActivity(new Intent(this, ExtensionRecoveryActivity.class)));
+        Button developer = new Button(this);
+        developer.setText("أدوات مطوري الإضافات");
+        developer.setAllCaps(false);
+        page.addView(developer, new LinearLayout.LayoutParams(-1, dp(44)));
+        developer.setOnClickListener(v -> startActivity(new Intent(this, ExtensionDeveloperActivity.class)));
         Button install = new Button(this);
         install.setText("استيراد إضافة .mt1");
         install.setAllCaps(false);
@@ -141,10 +152,21 @@ public class ExtensionManagerActivity extends Activity {
         String runtime = manifest.optString("runtime", "declarative");
         if (!"declarative".equals(runtime))
             throw new Exception("نوع الإضافة غير مدعوم. استخدم صيغة الإضافات التفاعلية declarative.");
+        int minVersion = manifest.optInt("min_app_version", 30);
+        int maxSdk = manifest.optInt("max_android_sdk", 1000);
+        if (minVersion > 30) throw new Exception("هذه الإضافة تتطلب إصدار تطبيق أحدث.");
+        if (android.os.Build.VERSION.SDK_INT > maxSdk) throw new Exception("الإضافة غير متوافقة مع إصدار Android الحالي.");
         File target = new File(root, id);
-        if (target.exists()) deleteTree(target);
+        if (target.exists()) {
+            File backups = new File(getFilesDir(), "extension_backups/" + id);
+            if (!backups.exists()) backups.mkdirs();
+            File backup = new File(backups, "backup-" + System.currentTimeMillis());
+            if (!target.renameTo(backup)) throw new Exception("تعذر حفظ النسخة السابقة؛ أُلغي التحديث لحماية الإضافة.");
+        }
         if (!stage.renameTo(target)) throw new Exception("تعذر تثبيت الإضافة.");
-        toast("تم تثبيت " + name + " (" + version + ")");
+        ExtensionState.setEnabled(this, id, true);
+        ExtensionState.appendLog(this, id, "تم تثبيت/تحديث الإصدار " + version);
+        toast("تم تثبيت " + name + " (" + version + ") مع الاحتفاظ بالنسخة السابقة إن وجدت.");
     }
 
     private byte[] readFile(File f, int max) throws Exception {
@@ -177,8 +199,10 @@ public class ExtensionManagerActivity extends Activity {
                 card.setOrientation(LinearLayout.VERTICAL);
                 card.setPadding(dp(12), dp(10), dp(12), dp(10));
                 card.setBackgroundColor(Theme.get(Store.theme()).surface);
+                String extensionId = m.optString("id", dir.getName());
+                boolean enabled = ExtensionState.enabled(this, extensionId);
                 TextView label = new TextView(this);
-                label.setText(m.optString("name", dir.getName()) + "  •  " + m.optString("version", ""));
+                label.setText(m.optString("name", dir.getName()) + "  •  " + m.optString("version", "") + (enabled ? "  •  مفعلة" : "  •  معطلة"));
                 label.setTextSize(16);
                 label.setTextColor(Theme.get(Store.theme()).tx);
                 card.addView(label);
@@ -186,20 +210,37 @@ public class ExtensionManagerActivity extends Activity {
                 desc.setText(m.optString("description", "بدون وصف"));
                 desc.setTextColor(Theme.get(Store.theme()).mut);
                 card.addView(desc);
+                Button toggle = new Button(this);
+                toggle.setText(enabled ? "تعطيل الإضافة" : "إعادة تفعيل الإضافة");
+                toggle.setAllCaps(false);
+                card.addView(toggle);
+                toggle.setOnClickListener(v -> {
+                    ExtensionState.setEnabled(this, extensionId, !ExtensionState.enabled(this, extensionId));
+                    ExtensionState.appendLog(this, extensionId, ExtensionState.enabled(this, extensionId) ? "تم تفعيل الإضافة" : "تم تعطيل الإضافة");
+                    render();
+                });
                 Button action = new Button(this);
                 action.setText("تشغيل الإضافة");
                 action.setAllCaps(false);
+                action.setEnabled(enabled);
                 card.addView(action);
                 action.setOnClickListener(v -> ExtensionRuntime.run(this, m, null));
-
+                Button permissions = new Button(this);
+                permissions.setText("الصلاحيات وسجل الأخطاء");
+                permissions.setAllCaps(false);
+                card.addView(permissions);
+                permissions.setOnClickListener(v -> showPermissionsAndLogs(extensionId, m));
                 Button remove = new Button(this);
                 remove.setText("إزالة الإضافة");
                 remove.setAllCaps(false);
                 card.addView(remove);
-                remove.setOnClickListener(v -> {
-                    if (deleteTree(dir)) { toast("تمت إزالة الإضافة"); render(); }
-                    else toast("تعذرت إزالة بعض الملفات");
-                });
+                remove.setOnClickListener(v -> new AlertDialog.Builder(this)
+                    .setTitle("حذف الإضافة").setMessage("هل تريد حذف " + m.optString("name", extensionId) + "؟")
+                    .setNegativeButton("إلغاء", null)
+                    .setPositiveButton("حذف", (dialog, which) -> {
+                        if (deleteTree(dir)) { ExtensionState.appendLog(this, extensionId, "تم حذف الإضافة"); toast("تمت إزالة الإضافة"); render(); }
+                        else toast("تعذرت إزالة بعض الملفات");
+                    }).show());
                 addCard(card);
             } catch (Exception e) {
                 TextView bad = new TextView(this);
@@ -208,6 +249,23 @@ public class ExtensionManagerActivity extends Activity {
                 list.addView(bad);
             }
         }
+    }
+
+    private void showPermissionsAndLogs(String id, JSONObject manifest) {
+        org.json.JSONArray requested = manifest.optJSONArray("permissions");
+        java.util.ArrayList<String> labels = new java.util.ArrayList<>();
+        java.util.ArrayList<String> keys = new java.util.ArrayList<>();
+        if (requested != null) for (int i = 0; i < requested.length(); i++) {
+            String key = requested.optString(i, "");
+            if (!key.isEmpty()) { keys.add(key); labels.add(key + (ExtensionState.permissionGranted(this, id, key) ? " (مسموح)" : " (غير مسموح)")); }
+        }
+        String[] items = labels.toArray(new String[0]);
+        boolean[] checked = new boolean[keys.size()];
+        for (int i = 0; i < keys.size(); i++) checked[i] = ExtensionState.permissionGranted(this, id, keys.get(i));
+        new AlertDialog.Builder(this).setTitle("صلاحيات " + id).setMultiChoiceItems(items, checked, (d, which, value) -> ExtensionState.setPermission(this, id, keys.get(which), value))
+            .setPositiveButton("حفظ", null).setNeutralButton("سجل الأخطاء", (d, w) ->
+                new AlertDialog.Builder(this).setTitle("سجل " + id).setMessage(ExtensionState.readLog(this, id)).setPositiveButton("إغلاق", null).show())
+            .setNegativeButton("إغلاق", null).show();
     }
 
     private void addBuiltinExtractor() {
