@@ -91,7 +91,15 @@ final class ExtensionRuntime {
                 ? manifest.optString("_file_action_handler", "")
                 : action.optString("handler", "");
         if ("javascript".equals(handler)) {
-            runJavaScript(activity, extensionId, selectedFile);
+            try {
+                ExtensionScriptRuntime.execute(activity, extensionId, selectedFile);
+                ExtensionState.clearActive(activity);
+                ExtensionState.appendLog(activity, extensionId, "JavaScript extension completed.");
+            } catch (Throwable error) {
+                ExtensionState.clearActive(activity);
+                ExtensionState.appendLog(activity, extensionId, "Extension script failed: " + error);
+                Toast.makeText(activity, "فشل تشغيل الإضافة: " + error.getMessage(), Toast.LENGTH_LONG).show();
+            }
             return;
         }
         runHandler(activity, handler, selectedFile);
