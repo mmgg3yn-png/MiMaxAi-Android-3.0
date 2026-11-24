@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
+        android:usesCleartextTraffic="true"
         android:allowBackup="false"
         android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher"
@@ -21,6 +22,7 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
+        <activity android:name=".RemotePcActivity" android:exported="false" />
         <activity android:name=".AgentActivity" android:exported="false" />
         <activity android:name=".BrowserActivity" android:exported="false" />
         <activity android:name=".TerminalActivity" android:exported="false" />
