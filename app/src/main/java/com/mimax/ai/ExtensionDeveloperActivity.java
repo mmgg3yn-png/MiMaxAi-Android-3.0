@@ -40,11 +40,17 @@ public class ExtensionDeveloperActivity extends Activity {
                 JSONObject m = new JSONObject();
                 m.put("id", safeId); m.put("name", safeName); m.put("version", "1.0.0");
                 m.put("description", "إضافة تم إنشاؤها باستخدام Mi_Max Extension Developer.");
-                m.put("runtime", "declarative");
+                m.put("runtime", "javascript".equals(h) ? "javascript" : "declarative");
                 JSONObject action = new JSONObject(); action.put("label", label.getText().toString().trim().isEmpty() ? safeName : label.getText().toString().trim()); action.put("handler", h);
                 m.put("action", action); m.put("permissions", new org.json.JSONArray());
                 File dir = new File(getFilesDir(), "extension_projects/" + safeId); if (!dir.exists() && !dir.mkdirs()) throw new Exception("تعذر إنشاء مجلد المشروع.");
                 File out = new File(dir, "manifest.json"); FileOutputStream stream = new FileOutputStream(out); stream.write(m.toString(2).getBytes("UTF-8")); stream.close();
+                if ("javascript".equals(h)) {
+                    File js = new File(dir, "main.js");
+                    FileOutputStream script = new FileOutputStream(js);
+                    script.write("api.toast(\\\"Plugin loaded\\\");".getBytes("UTF-8"));
+                    script.close();
+                }
                 new android.app.AlertDialog.Builder(this).setTitle("تم إنشاء القالب").setMessage(out.getAbsolutePath() + "\nيمكنك ضغط مجلد المشروع إلى ملف .mt1 بعد إضافة ملفاتك.").setPositiveButton("حسناً", null).show();
             } catch (Exception e) { new android.app.AlertDialog.Builder(this).setMessage(e.getMessage()).setPositiveButton("حسناً", null).show(); }
         });
