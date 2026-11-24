@@ -202,6 +202,12 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        ExtensionState.clearActive(this);
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (tts != null) tts.shutdown();
