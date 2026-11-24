@@ -62,7 +62,7 @@ public final class DeviceCapabilities {
 
     /** Must only be called after the user explicitly taps the Root check button. */
     public static String requestRootCheck() {
-        Process process = null;
+        java.lang.Process process = null;
         try {
             process = new ProcessBuilder("su", "-c", "id").redirectErrorStream(true).start();
             boolean ended = process.waitFor(3, TimeUnit.SECONDS);
