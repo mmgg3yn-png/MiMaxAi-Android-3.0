@@ -23,6 +23,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
@@ -30,6 +31,8 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
+import java.net.HttpURLConnection;
+import java.net.URL;
 
 public class AgentActivity extends Activity {
     private static final int PICK_FILE = 71, EXPORT_WORKSPACE = 72;
@@ -40,6 +43,7 @@ public class AgentActivity extends Activity {
     private String attachedText = "";
     private JSONArray pending = new JSONArray();
     private File workspace;
+    private EditText pcHost, pcToken;
 
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
 
@@ -61,7 +65,7 @@ public class AgentActivity extends Activity {
         title.setGravity(Gravity.CENTER_VERTICAL);
         root.addView(title, new LinearLayout.LayoutParams(-1, dp(48)));
         TextView info = new TextView(this);
-        info.setText("وكيل برمجي يعمل بنموذج OpenRouter. يستطيع قراءة ملفات مساحة العمل وإنشاء أو تعديل ملفات فيها بعد موافقتك. لا ينفّذ أوامر النظام أو التفليش.");
+        info.setText("وكيل برمجي يعمل بنموذج OpenRouter. يستورد مشروع ZIP، يقرأ ملفاته ويقترح تعديلات لا تُحفظ إلا بعد موافقتك. يمكنك رفع مساحة العمل إلى الكمبيوتر وتشغيل بناء Gradle.");
         info.setTextColor(0xFF536273);
         info.setTextSize(13);
         root.addView(info);
@@ -82,6 +86,36 @@ public class AgentActivity extends Activity {
         pick.setAllCaps(false);
         root.addView(pick, new LinearLayout.LayoutParams(-1, dp(44)));
         pick.setOnClickListener(v -> pickFile());
+
+        pcHost = new EditText(this);
+        pcHost.setSingleLine(true);
+        pcHost.setHint("عنوان PC Bridge مثل http://192.168.1.5:8765");
+        pcHost.setTextSize(13);
+        pcHost.setTextColor(0xFF17212D);
+        pcHost.setBackgroundColor(0xFFFFFFFF);
+        pcHost.setPadding(dp(10), 0, dp(10), 0);
+        root.addView(pcHost, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        pcToken = new EditText(this);
+        pcToken.setSingleLine(true);
+        pcToken.setHint("رمز PC Bridge");
+        pcToken.setTextSize(13);
+        pcToken.setTextColor(0xFF17212D);
+        pcToken.setBackgroundColor(0xFFFFFFFF);
+        pcToken.setPadding(dp(10), 0, dp(10), 0);
+        root.addView(pcToken, new LinearLayout.LayoutParams(-1, dp(44)));
+
+        Button uploadPc = new Button(this);
+        uploadPc.setText("رفع مساحة العمل إلى الكمبيوتر");
+        uploadPc.setAllCaps(false);
+        root.addView(uploadPc, new LinearLayout.LayoutParams(-1, dp(44)));
+        uploadPc.setOnClickListener(v -> uploadWorkspaceToPc());
+
+        Button buildPc = new Button(this);
+        buildPc.setText("بناء APK على الكمبيوتر");
+        buildPc.setAllCaps(false);
+        root.addView(buildPc, new LinearLayout.LayoutParams(-1, dp(44)));
+        buildPc.setOnClickListener(v -> buildOnPc());
 
         Button send = new Button(this);
         send.setText("إرسال المهمة إلى الوكيل");
@@ -165,6 +199,101 @@ public class AgentActivity extends Activity {
         } catch (Exception e) { toast("تعذرت العملية: " + e.getMessage()); }
     }
 
+
+
+    private String pcBase() {
+        String base = pcHost.getText().toString().trim().replaceAll("/+$", "");
+        if (!(base.startsWith("http://") || base.startsWith("https://")) || pcToken.getText().toString().trim().isEmpty())
+            throw new IllegalArgumentException("أدخل عنوان الكمبيوتر ورمز الاتصال أولاً.");
+        return base;
+    }
+
+    private void uploadWorkspaceToPc() {
+        final String base;
+        final String key = pcToken.getText().toString().trim();
+        try { base = pcBase(); } catch (Exception e) { toast(e.getMessage()); return; }
+        output.setText("جارٍ ضغط مساحة العمل وإرسالها إلى الكمبيوتر...");
+        new Thread(() -> {
+            File archive = new File(getCacheDir(), "mimax-workspace-upload.zip");
+            try {
+                ArrayList<File> files = new ArrayList<>();
+                collectAll(workspace, files, 2000);
+                long total = 0;
+                ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(archive));
+                byte[] buffer = new byte[8192];
+                for (File file : files) {
+                    total += file.length();
+                    if (total > 100L * 1024 * 1024) throw new Exception("مساحة العمل أكبر من حد الرفع (100MB).");
+                    String rel = workspace.toURI().relativize(file.toURI()).getPath();
+                    zip.putNextEntry(new ZipEntry(rel));
+                    FileInputStream in = new FileInputStream(file);
+                    int n; while ((n = in.read(buffer)) != -1) zip.write(buffer, 0, n);
+                    in.close();
+                    zip.closeEntry();
+                }
+                zip.close();
+                HttpURLConnection c = (HttpURLConnection) new URL(base + "/upload").openConnection();
+                c.setRequestMethod("POST");
+                c.setConnectTimeout(15000);
+                c.setReadTimeout(180000);
+                c.setDoOutput(true);
+                c.setFixedLengthStreamingMode(archive.length());
+                c.setRequestProperty("X-MiMax-Token", key);
+                c.setRequestProperty("Content-Type", "application/zip");
+                OutputStream out = c.getOutputStream();
+                FileInputStream in = new FileInputStream(archive);
+                int n; while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                in.close(); out.close();
+                int status = c.getResponseCode();
+                InputStream response = status < 400 ? c.getInputStream() : c.getErrorStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(response, "UTF-8"));
+                StringBuilder text = new StringBuilder(); String line;
+                while ((line = reader.readLine()) != null) text.append(line);
+                reader.close(); c.disconnect();
+                JSONObject result = new JSONObject(text.toString());
+                String message = result.optBoolean("ok") ? "تم رفع مساحة العمل. العناصر: " + result.optInt("files") + "\\nيمكنك الآن تشغيل بناء APK على الكمبيوتر." : result.optString("error", "فشل الرفع");
+                runOnUiThread(() -> output.setText(message));
+            } catch (Exception e) {
+                String message = "فشل رفع مساحة العمل: " + (e.getMessage() == null ? "خطأ غير معروف" : e.getMessage());
+                runOnUiThread(() -> output.setText(message));
+            } finally { if (archive.exists()) archive.delete(); }
+        }).start();
+    }
+
+    private void buildOnPc() {
+        final String base;
+        final String key = pcToken.getText().toString().trim();
+        try { base = pcBase(); } catch (Exception e) { toast(e.getMessage()); return; }
+        output.setText("جارٍ تشغيل Gradle على الكمبيوتر...");
+        new Thread(() -> {
+            HttpURLConnection c = null;
+            try {
+                c = (HttpURLConnection) new URL(base + "/run").openConnection();
+                c.setRequestMethod("POST");
+                c.setConnectTimeout(15000);
+                c.setReadTimeout(950000);
+                c.setDoOutput(true);
+                c.setRequestProperty("X-MiMax-Token", key);
+                c.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+                JSONObject body = new JSONObject();
+                body.put("command", "gradle --no-daemon :app:assembleDebug");
+                OutputStream out = c.getOutputStream();
+                out.write(body.toString().getBytes("UTF-8")); out.close();
+                int status = c.getResponseCode();
+                InputStream response = status < 400 ? c.getInputStream() : c.getErrorStream();
+                BufferedReader reader = new BufferedReader(new InputStreamReader(response, "UTF-8"));
+                StringBuilder text = new StringBuilder(); String line;
+                while ((line = reader.readLine()) != null) text.append(line).append('\\n');
+                reader.close();
+                JSONObject result = new JSONObject(text.toString());
+                String message = result.optString("output", result.optString("error", "لا توجد مخرجات")) + "\\nHTTP " + status + " — exit " + result.optInt("exit_code", -1);
+                runOnUiThread(() -> output.setText(message));
+            } catch (Exception e) {
+                String message = "فشل البناء عن بعد: " + (e.getMessage() == null ? "خطأ غير معروف" : e.getMessage());
+                runOnUiThread(() -> output.setText(message));
+            } finally { if (c != null) c.disconnect(); }
+        }).start();
+    }
 
     private String displayName(Uri uri) {
         Cursor c = getContentResolver().query(uri, null, null, null, null);
