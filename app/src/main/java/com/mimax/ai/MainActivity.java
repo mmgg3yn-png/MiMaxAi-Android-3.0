@@ -53,15 +53,6 @@ import android.widget.Switch;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import com.google.android.gms.auth.api.signin.GoogleSignIn;
-import com.google.android.gms.auth.api.signin.GoogleSignInAccount;
-import com.google.android.gms.auth.api.signin.GoogleSignInClient;
-import com.google.android.gms.auth.api.signin.GoogleSignInOptions;
-import com.google.android.gms.common.api.ApiException;
-import com.google.firebase.FirebaseApp;
-import com.google.firebase.auth.AuthCredential;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.GoogleAuthProvider;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -84,9 +75,7 @@ import java.util.regex.Pattern;
 
 public class MainActivity extends Activity {
 
-    static final int REQ_IMG = 1, REQ_AUD = 2, REQ_STO = 3, REQ_GOOGLE = 9001;
-    FirebaseAuth firebaseAuth;
-    GoogleSignInClient googleSignInClient;
+    static final int REQ_IMG = 1, REQ_AUD = 2, REQ_STO = 3;
     static boolean toSettings = false;
     static final String DEFAULT_PROMPT =
             "أنت Mi_Max Ai، مساعد ذكي ودود وعملي. أجب بلغة المستخدم (والعربية افتراضياً) بوضوح وإيجاز، "
@@ -192,24 +181,6 @@ public class MainActivity extends Activity {
                 : android.R.style.Theme_DeviceDefault_Light_NoActionBar);
         super.onCreate(b);
         colors();
-        try {
-            FirebaseApp.initializeApp(this);
-            firebaseAuth = FirebaseAuth.getInstance();
-            GoogleSignInOptions gso = new GoogleSignInOptions.Builder(GoogleSignInOptions.DEFAULT_SIGN_IN)
-                    .requestEmail()
-                    .requestIdToken(getString(R.string.default_web_client_id))
-                    .build();
-            googleSignInClient = GoogleSignIn.getClient(this, gso);
-        } catch (Throwable authInitError) {
-            showAuthSetupError("تعذر تهيئة Google/Firebase: " + authInitError.getMessage());
-            return;
-        }
-        if (firebaseAuth.getCurrentUser() == null) {
-            Store.logout();
-            showGoogleLogin();
-            return;
-        }
-        syncFirebaseSession();
         reload();
         media = new MediaUi(this);
         files = new FileScreen(this);
@@ -222,29 +193,6 @@ public class MainActivity extends Activity {
             if (reopenLook) { reopenLook = false; openSub("look"); }
             if (reopenDev) { reopenDev = false; openSub("devopts"); }
         } else showChat();
-        checkDeletionThenSync();
-    }
-
-    void syncCloud(boolean notify) {
-        if (firebaseAuth == null || firebaseAuth.getCurrentUser() == null) return;
-        CloudSync.sync(this, firebaseAuth.getCurrentUser(), chats, mem, prompt,
-                (mergedChats, cloudMemory, cloudPrompt, cloudName, publicId, error) -> {
-                    if (isFinishing()) return;
-                    if (error != null) {
-                        if (notify) toast("تعذرت المزامنة: " + error);
-                        return;
-                    }
-                    chats = mergedChats;
-                    mem = cloudMemory == null ? new ArrayList<>() : cloudMemory;
-                    prompt = cloudPrompt == null ? "" : cloudPrompt;
-                    Store.saveChats(chats);
-                    Store.saveMem(mem);
-                    Store.setPrompt(prompt);
-                    if (cloudName != null && !cloudName.trim().isEmpty()) Store.setProfileName(cloudName);
-                    if (publicId != null && !publicId.isEmpty()) Store.setPublicId(publicId);
-                    if (tab.equals("hist")) showHist();
-                    if (notify) toast("تمت مزامنة المحادثات والذاكرة والإعدادات");
-                });
     }
 
     @Override
@@ -1105,8 +1053,8 @@ public class MainActivity extends Activity {
         StringBuilder s = new StringBuilder(prompt.isEmpty() ? DEFAULT_PROMPT : prompt);
         s.append("\nالتاريخ الحالي: ")
                 .append(new SimpleDateFormat("EEEE d MMMM yyyy", new Locale("ar")).format(new Date())).append(".");
-        String u = Store.session();
-        if (!u.isEmpty()) s.append("\nاسم حساب المستخدم: ").append(u).append(".");
+        String u = Store.profileName();
+        if (!u.isEmpty()) s.append("\nاسم المستخدم: ").append(u).append(".");
         if (!mem.isEmpty()) {
             s.append("\n\nمعلومات محفوظة عن المستخدم (استخدمها عند الصلة فقط ولا تذكرها بلا داعٍ):");
             for (String m : mem) s.append("\n- ").append(m);
@@ -1260,7 +1208,6 @@ public class MainActivity extends Activity {
                 else am.t = fr.isEmpty() ? (cn[0] ? "(تم الإيقاف)" : "(لا يوجد رد)") : fr;
                 busy = false;
                 Store.saveChats(chats);
-                syncCloud(false);
                 if (tab.equals("chat") && sub == null) showChat();
                 if (fe == null && !fr.isEmpty() && !regen) extractMem(um.t, am.t);
             });
@@ -1295,11 +1242,6 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int rq, int rs, Intent d) {
         super.onActivityResult(rq, rs, d);
-        if (rq == REQ_GOOGLE) {
-            if (d != null) handleGoogleResult(d);      // حتى عند الإلغاء/الخطأ يحمل Intent رمز الحالة
-            else { toast("تم إلغاء تسجيل الدخول"); showGoogleLogin(); }
-            return;
-        }
         if (rq == REQ_IMG && rs == RESULT_OK && d != null && d.getData() != null) {
             final Uri u = d.getData();
             new Thread(() -> {
@@ -1526,7 +1468,6 @@ public class MainActivity extends Activity {
                     chats.remove(c);
                     if (cur == c) cur = null;
                     Store.saveChats(chats);
-                    CloudSync.deleteChat(this, firebaseAuth == null ? null : firebaseAuth.getCurrentUser(), c.id);
                     showHist();
                 });
             }
@@ -1628,8 +1569,7 @@ public class MainActivity extends Activity {
         selNav(4);
         header("الإعدادات", false, false);
         LinearLayout p = page();
-        String u = Store.session();
-        p.addView(row("ID", u.isEmpty() ? "تسجيل Google" : "حساب Google", u.isEmpty() ? "سجّل الدخول بحساب Google" : Store.googleEmail(), v -> openSub("account")));
+        p.addView(row("USR", "الملف الشخصي", Store.profileName().isEmpty() ? "اسم محلي اختياري" : Store.profileName(), v -> openSub("profile")));
         p.addView(row("API", "الذكاء الاصطناعي", Store.hasCustomKey() ? "تستخدم مفتاحك الخاص" : "يعمل بالمفتاح المدمج", v -> openSub("ai")));
         p.addView(row("MDL", "النماذج المجانية", Store.model().isEmpty() ? "اختيار تلقائي" : Store.model(), v -> openSub("models")));
         p.addView(row("TXT", "البرمبت", "تعليمات تحسّن أسلوب الذكاء الاصطناعي", v -> openSub("prompt")));
@@ -1646,7 +1586,7 @@ public class MainActivity extends Activity {
         LinearLayout p = page();
         String t = "";
         switch (s) {
-            case "account": t = Store.session().isEmpty() ? "إنشاء حساب" : "حسابي"; pAccount(p); break;
+            case "profile": t = "الملف الشخصي"; pProfile(p); break;
             case "ai": t = "الذكاء الاصطناعي"; pAi(p); break;
             case "prompt": t = "البرمبت"; pPrompt(p); break;
             case "mem": t = "الذاكرة"; pMem(p); break;
@@ -1660,292 +1600,20 @@ public class MainActivity extends Activity {
         setPage(p);
     }
 
-    void pAccount(final LinearLayout p) {
+    void pProfile(final LinearLayout p) {
         p.removeAllViews();
-        if (firebaseAuth == null || firebaseAuth.getCurrentUser() == null) {
-            p.addView(box("يلزم تسجيل الدخول بحساب Google لاستخدام الحساب."));
-            p.addView(btn("تسجيل الدخول باستخدام Google", AC, ON, v -> showGoogleLogin()));
-            return;
-        }
-        com.google.firebase.auth.FirebaseUser user = firebaseAuth.getCurrentUser();
-        String email = user.getEmail() == null ? Store.googleEmail() : user.getEmail();
-        String name = user.getDisplayName() == null ? Store.googleName() : user.getDisplayName();
-        TextView av = tv((name == null || name.isEmpty()) ? "G" : name.substring(0, 1).toUpperCase(), ON, 34);
-        av.setGravity(Gravity.CENTER);
-        av.setTypeface(Typeface.DEFAULT_BOLD);
-        av.setBackground(rr(AC, 42, 0));
-        LinearLayout.LayoutParams ap = new LinearLayout.LayoutParams(dp(84), dp(84));
-        ap.gravity = Gravity.CENTER_HORIZONTAL;
-        ap.topMargin = dp(12);
-        p.addView(av, ap);
-        TextView n = tv(name == null || name.isEmpty() ? "حساب Google" : name, TX, 20);
-        n.setGravity(Gravity.CENTER);
-        n.setPadding(0, dp(10), 0, dp(4));
-        p.addView(n);
-        TextView e = note(email == null ? "" : email);
-        e.setGravity(Gravity.CENTER);
-        p.addView(e);
-        p.addView(note(chats.size() + " محادثة — " + mem.size() + " عنصر في الذاكرة"));
-        p.addView(note("المعرّف الثابت: " + Store.publicId()));
-        EditText displayName = field(p, "الاسم الذي يظهر داخل التطبيق", Store.profileName().isEmpty() ? (name == null ? "" : name) : Store.profileName(), false, false);
+        p.addView(note("هذا ملف شخصي محلي اختياري. لا يوجد تسجيل دخول أو حساب سحابي."));
+        EditText displayName = field(p, "الاسم الذي يظهر داخل التطبيق", Store.profileName(), false, false);
         p.addView(btn("حفظ الاسم", AC, ON, v -> {
             String chosen = displayName.getText().toString().trim();
-            if (chosen.isEmpty()) { toast("اكتب اسماً أولاً"); return; }
             Store.setProfileName(chosen);
-            CloudSync.saveProfile(this, user, chosen, Store.publicId());
-            toast("تم حفظ الاسم");
-            pAccount(p);
+            toast("تم حفظ الاسم على هذا الجهاز");
         }));
-        p.addView(btn("مزامنة المحادثات الآن", AC, ON, v -> syncCloud(true)));
-        p.addView(btn("تسجيل الخروج", SF2, TX, v -> signOutGoogle()));
-        if (pendingDeletion != null) {
-            p.addView(box("حسابك مجدول للحذف النهائي بتاريخ " + fmtDate(pendingDeletion)));
-            p.addView(btn("إلغاء حذف الحساب", AC, ON, v -> CloudSync.cancelDeletion(user, err -> {
-                if (err != null) { toast("تعذر إلغاء الحذف: " + err); return; }
-                pendingDeletion = null;
-                toast("تم إلغاء حذف الحساب");
-                pAccount(p);
-            })));
-        } else {
-            p.addView(btn("حذف الحساب نهائياً (مهلة 30 يوماً)", SF, ER, v -> requestAccountDeletion(user)));
-        }
-        p.addView(btn("حذف بيانات هذا الجهاز", SF, ER, v -> confirm(
-                "سيتم حذف المحادثات والذاكرة المحلية لهذا الحساب من هذا الجهاز فقط. هل تريد المتابعة؟",
-                () -> { Store.clearCurrentUserData(); reload(); showSettings(); })));
-    }
-
-
-    void syncFirebaseSession() {
-        com.google.firebase.auth.FirebaseUser u = firebaseAuth.getCurrentUser();
-        if (u != null) {
-            Store.setGoogleSession(u.getUid(), u.getDisplayName(), u.getEmail());
-            if (Store.profileName().trim().isEmpty() && u.getDisplayName() != null)
-                Store.setProfileName(u.getDisplayName());
-            Store.publicId();
-        }
-    }
-
-    void showAuthSetupError(String message) {
-        LinearLayout box = new LinearLayout(this);
-        box.setOrientation(LinearLayout.VERTICAL);
-        box.setGravity(Gravity.CENTER);
-        box.setPadding(dp(24), dp(24), dp(24), dp(24));
-        box.setBackgroundColor(BG);
-        TextView title = tv("Mi_Max Ai", TX, 25);
-        title.setTypeface(Typeface.DEFAULT_BOLD);
-        title.setGravity(Gravity.CENTER);
-        box.addView(title);
-        TextView detail = note(message + "\nتأكد من وجود google-services.json داخل مجلد app ومن إعداد Firebase Authentication.");
-        detail.setGravity(Gravity.CENTER);
-        box.addView(detail);
-        setContentView(box);
-    }
-
-    void showGoogleLogin() {
-        ScrollView scroll = new ScrollView(this);
-        scroll.setFillViewport(true);
-        scroll.setBackgroundColor(BG);
-
-        LinearLayout root = new LinearLayout(this);
-        root.setOrientation(LinearLayout.VERTICAL);
-        root.setGravity(Gravity.CENTER_HORIZONTAL);
-        root.setPadding(dp(24), dp(30), dp(24), dp(24));
-        scroll.addView(root, new ScrollView.LayoutParams(-1, -2));
-
-        // Brand mark
-        TextView mark = tv("M", ON, 34);
-        mark.setTypeface(Typeface.DEFAULT_BOLD);
-        mark.setGravity(Gravity.CENTER);
-        mark.setBackground(rr(AC, 26, 0));
-        mark.setElevation(dp(5));
-        LinearLayout.LayoutParams markLp = new LinearLayout.LayoutParams(dp(82), dp(82));
-        markLp.gravity = Gravity.CENTER_HORIZONTAL;
-        markLp.bottomMargin = dp(14);
-        root.addView(mark, markLp);
-
-        TextView logo = tv("Mi_Max Ai", TX, 29);
-        logo.setTypeface(Typeface.DEFAULT_BOLD);
-        logo.setGravity(Gravity.CENTER);
-        root.addView(logo);
-
-        TextView tagline = tv("ذكاء يساعدك على إنجاز المزيد", AC, 14);
-        tagline.setGravity(Gravity.CENTER);
-        tagline.setPadding(0, dp(5), 0, dp(24));
-        root.addView(tagline);
-
-        LinearLayout welcome = new LinearLayout(this);
-        welcome.setOrientation(LinearLayout.VERTICAL);
-        welcome.setPadding(dp(20), dp(22), dp(20), dp(20));
-        welcome.setBackground(rr(SF, 22, LN));
-        welcome.setElevation(dp(2));
-        LinearLayout.LayoutParams welcomeLp = new LinearLayout.LayoutParams(-1, -2);
-        welcomeLp.bottomMargin = dp(18);
-        root.addView(welcome, welcomeLp);
-
-        TextView heading = tv("أهلاً بك! يسعدنا وجودك هنا", TX, 21);
-        heading.setTypeface(Typeface.DEFAULT_BOLD);
-        heading.setGravity(Gravity.CENTER);
-        welcome.addView(heading);
-
-        TextView desc = tv("ابدأ رحلتك مع Mi_Max Ai، مساعدك الذكي للمحادثة والإبداع والإجابة عن أسئلتك. سجّل الدخول بحساب Google لحفظ محادثاتك ومزامنتها.", MUT, 14);
-        desc.setGravity(Gravity.CENTER);
-        desc.setLineSpacing(dp(3), 1.15f);
-        desc.setPadding(0, dp(12), 0, dp(4));
-        welcome.addView(desc);
-
-        TextView features = tv("محادثات ذكية   •   نماذج متعددة   •   مزامنة سحابية", TX, 12);
-        features.setGravity(Gravity.CENTER);
-        features.setPadding(dp(4), dp(14), dp(4), dp(2));
-        welcome.addView(features);
-
-        TextView signTitle = tv("سجّل الدخول للمتابعة", TX, 16);
-        signTitle.setTypeface(Typeface.DEFAULT_BOLD);
-        signTitle.setGravity(Gravity.CENTER);
-        signTitle.setPadding(0, dp(4), 0, dp(4));
-        root.addView(signTitle);
-
-        Button google = btn("المتابعة باستخدام Google", AC, ON, v -> {
-            if (googleSignInClient == null) {
-                toast("خدمة Google غير مهيأة. تحقق من إعداد Firebase.");
-                return;
-            }
-            v.setEnabled(false);
-            ((Button) v).setText("جارٍ فتح Google…");
-            try {
-                startActivityForResult(googleSignInClient.getSignInIntent(), REQ_GOOGLE);
-            } catch (Exception e) {
-                v.setEnabled(true);
-                ((Button) v).setText("المتابعة باستخدام Google");
-                toast("تعذر فتح تسجيل Google: " + e.getMessage());
-            }
-        });
-        root.addView(google);
-
-        TextView foot = note("بتسجيل الدخول، تتم المصادقة بأمان عبر Google وFirebase. لا تحتاج إلى إنشاء كلمة مرور جديدة داخل التطبيق.");
-        foot.setGravity(Gravity.CENTER);
-        foot.setPadding(dp(8), dp(18), dp(8), dp(4));
-        root.addView(foot);
-
-        setContentView(scroll);
-    }
-
-    /** تسجيل خروج مع رفع آخر نسخة من المحادثات والذاكرة أولاً، حتى تعود كاملة عند الدخول من جديد. */
-    void signOutGoogle() {
-        final com.google.firebase.auth.FirebaseUser u = firebaseAuth == null ? null : firebaseAuth.getCurrentUser();
-        if (u == null) { hardSignOut(); return; }
-        toast("جارٍ حفظ بياناتك قبل الخروج…");
-        final boolean[] finished = {false};
-        final Runnable finish = () -> {
-            if (finished[0]) return;
-            finished[0] = true;
-            hardSignOut();
-        };
-        new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(finish, 8000);
-        CloudSync.sync(this, u, chats, mem, prompt, (c, m, p, n, id, err) -> finish.run());
-    }
-
-    void hardSignOut() {
-        if (firebaseAuth != null) firebaseAuth.signOut();
-        if (googleSignInClient != null) googleSignInClient.signOut();
-        Store.logout();
-        recreate();
-    }
-
-    // ---------- حذف الحساب بمهلة 30 يوماً ----------
-    Long pendingDeletion = null;
-
-    String fmtDate(long ms) {
-        return new SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.getDefault()).format(new java.util.Date(ms));
-    }
-
-    /** يفحص طلب حذف سابق قبل المزامنة: استعادة خلال المهلة، أو حذف نهائي بعد انتهائها. */
-    void checkDeletionThenSync() {
-        final com.google.firebase.auth.FirebaseUser u = firebaseAuth == null ? null : firebaseAuth.getCurrentUser();
-        if (u == null) return;
-        CloudSync.getDeletion(u, (at, err) -> {
-            if (isFinishing()) return;
-            pendingDeletion = at;
-            if (err != null || at == null) { syncCloud(false); return; }
-            if (System.currentTimeMillis() >= at) finalizeDeletion(u);
-            else askRestore(u, at);
-        });
-    }
-
-    void askRestore(final com.google.firebase.auth.FirebaseUser u, long at) {
-        new GB(this).setCancelable(false)
-                .setTitle("حسابك مجدول للحذف")
-                .setMessage("سيُحذف حسابك وكل بياناته نهائياً بتاريخ " + fmtDate(at)
-                        + ".\nهل تريد استعادة الحساب وإلغاء الحذف؟")
-                .setPositiveButton("استعادة الحساب", (d, w) -> CloudSync.cancelDeletion(u, err -> {
-                    if (err != null) { toast("تعذر إلغاء الحذف: " + err); return; }
-                    pendingDeletion = null;
-                    toast("تمت استعادة حسابك");
-                    syncCloud(false);
-                }))
-                .setNegativeButton("تسجيل الخروج", (d, w) -> hardSignOut())
-                .show();
-    }
-
-    void finalizeDeletion(final com.google.firebase.auth.FirebaseUser u) {
-        toast("انتهت مهلة الـ30 يوماً، جارٍ حذف الحساب نهائياً…");
-        CloudSync.purgeAll(u, err -> {
-            if (err == null) {
-                Store.clearCurrentUserData();
-                if (googleSignInClient != null) googleSignInClient.revokeAccess();
-                toast("تم حذف الحساب وبياناته نهائياً");
-            } else {
-                toast("تعذر إكمال الحذف: " + err + " — سجّل الدخول مجدداً لإعادة المحاولة");
-            }
-            hardSignOut();
-        });
-    }
-
-    void requestAccountDeletion(final com.google.firebase.auth.FirebaseUser u) {
-        confirm("حذف الحساب نهائياً؟\n\nلديك فرصة 30 يوماً: إذا سجّلت الدخول خلالها يمكنك استعادة حسابك كاملاً."
-                + "\nبعد 30 يوماً يُحذف الحساب مع كل المحادثات والذاكرة والإعدادات نهائياً ولا يمكن استرجاعها.",
-                () -> CloudSync.requestDeletion(u, err -> {
-                    if (err != null) { toast("تعذر طلب الحذف: " + err); return; }
-                    toast("تم جدولة حذف حسابك بعد 30 يوماً");
-                    hardSignOut();
-                }));
-    }
-
-    void handleGoogleResult(Intent data) {
-        try {
-            GoogleSignInAccount account = GoogleSignIn.getSignedInAccountFromIntent(data)
-                    .getResult(ApiException.class);
-            if (account == null || account.getIdToken() == null) {
-                toast("لم تستلم Google رمز تسجيل الدخول. راجع OAuth Web Client ID.");
-                showGoogleLogin();
-                return;
-            }
-            AuthCredential credential = GoogleAuthProvider.getCredential(account.getIdToken(), null);
-            firebaseAuth.signInWithCredential(credential).addOnCompleteListener(this, task -> {
-                if (task.isSuccessful() && firebaseAuth.getCurrentUser() != null) {
-                    syncFirebaseSession();
-                    toast("تم تسجيل الدخول بحساب Google");
-                    recreate();
-                } else {
-                    String err = task.getException() == null ? "تعذر تسجيل الدخول" : task.getException().getMessage();
-                    toast("فشل تسجيل الدخول: " + err);
-                    showGoogleLogin();
-                }
-            });
-        } catch (ApiException e) {
-            int sc = e.getStatusCode();
-            String why;
-            if (sc == 12501) why = "تم إلغاء اختيار الحساب";
-            else if (sc == 12500) why = "فشل تسجيل Google. حدّث خدمات Google Play ثم أعد المحاولة (12500)";
-            else if (sc == 10) why = "إعداد التطبيق غير مطابق: تحقق من بصمة SHA-1 وملف google-services.json في Firebase (DEVELOPER_ERROR 10)";
-            else if (sc == 7) why = "لا يوجد اتصال بالإنترنت (7)";
-            else if (sc == 8) why = "خطأ داخلي في خدمات Google، أعد المحاولة (8)";
-            else why = "تعذر تسجيل Google (" + sc + ")";
-            toast(why);
-            showGoogleLogin();
-        } catch (Exception e) {
-            toast("خطأ في تسجيل Google: " + e.getMessage());
-            showGoogleLogin();
-        }
+        p.addView(note(chats.size() + " محادثة — " + mem.size() + " عنصر في الذاكرة"));
+        p.addView(note("المحادثات والذاكرة والإعدادات محفوظة محلياً على جهازك."));
+        p.addView(btn("مسح بيانات التطبيق المحلية", SF, ER, v -> confirm(
+                "سيتم حذف المحادثات والذاكرة والإعدادات المحلية. هل تريد المتابعة؟",
+                () -> { Store.clearLocalData(); reload(); showSettings(); })));
     }
 
     void pAi(final LinearLayout p) {
