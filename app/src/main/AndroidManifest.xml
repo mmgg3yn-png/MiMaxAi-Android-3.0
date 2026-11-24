@@ -13,6 +13,7 @@
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <application
+        android:name=".MiMaxApplication"
         android:usesCleartextTraffic="true"
         android:allowBackup="false"
         android:requestLegacyExternalStorage="true"
@@ -24,6 +25,8 @@
 
         <activity android:name=".LogoBinExtractorActivity" android:exported="false" />
         <activity android:name=".ExtensionManagerActivity" android:exported="false" />
+        <activity android:name=".ExtensionRecoveryActivity" android:exported="false" />
+        <activity android:name=".ExtensionDeveloperActivity" android:exported="false" />
         <activity android:name=".CapabilityActivity" android:exported="false" />
         <activity android:name=".BackupActivity" android:exported="false" />
         <activity android:name=".RemotePcActivity" android:exported="false" />
