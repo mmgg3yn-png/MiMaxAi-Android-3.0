@@ -74,8 +74,8 @@ public class BrowserActivity extends Activity {
 
         LinearLayout nav = new LinearLayout(this);
         nav.setGravity(Gravity.CENTER);
-        addNav(nav, "رجوع", th, () -> current() != null && current().canGoBack() && current().goBack());
-        addNav(nav, "تقدم", th, () -> current() != null && current().canGoForward() && current().goForward());
+        addNav(nav, "رجوع", th, () -> { if (current() != null && current().canGoBack()) current().goBack(); });
+        addNav(nav, "تقدم", th, () -> { if (current() != null && current().canGoForward()) current().goForward(); });
         addNav(nav, "تحديث", th, () -> { if (current()!=null) current().reload(); });
         addNav(nav, "الرئيسية", th, () -> { if (current()!=null) current().loadUrl(HOME); });
         addNav(nav, "تبويب +", th, () -> newTab(HOME));
