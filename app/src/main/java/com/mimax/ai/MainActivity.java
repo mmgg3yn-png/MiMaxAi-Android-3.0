@@ -1617,7 +1617,7 @@ public class MainActivity extends Activity {
         p.addView(note(chats.size() + " محادثة — " + mem.size() + " عنصر في الذاكرة"));
         p.addView(note("المحادثات والذاكرة والإعدادات محفوظة محلياً على جهازك."));
         p.addView(btn("مسح بيانات التطبيق المحلية", SF, ER, v -> confirm(
-                "سيتم حذف المحادثات والذاكرة والإعدادات المحلية. هل تريد المتابعة؟",
+                "سيتم حذف المحادثات والذاكرة والبرمبت والاسم المحلي فقط. هل تريد المتابعة؟",
                 () -> { Store.clearLocalData(); reload(); showSettings(); })));
     }
 
