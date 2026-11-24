@@ -10,6 +10,7 @@
   },
   "file_action": {
     "label": "فك logo.bin واستخراج الصور",
+    "filename": "logo.bin",
     "extensions": [".bin"],
     "handler": "logo_bin_extractor"
   },
