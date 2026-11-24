@@ -12,6 +12,12 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
+import android.database.Cursor;
+import android.provider.OpenableColumns;
+
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -25,7 +31,7 @@ import java.io.InputStreamReader;
 import java.util.ArrayList;
 
 public class AgentActivity extends Activity {
-    private static final int PICK_FILE = 71;
+    private static final int PICK_FILE = 71, EXPORT_WORKSPACE = 72;
     private EditText task;
     private TextView output;
     private Button apply;
@@ -71,7 +77,7 @@ public class AgentActivity extends Activity {
         root.addView(task, tp);
 
         Button pick = new Button(this);
-        pick.setText("إرفاق ملف نصي من الجهاز");
+        pick.setText("استيراد ملف نصي أو مشروع ZIP");
         pick.setAllCaps(false);
         root.addView(pick, new LinearLayout.LayoutParams(-1, dp(44)));
         pick.setOnClickListener(v -> pickFile());
@@ -102,6 +108,18 @@ public class AgentActivity extends Activity {
         root.addView(apply, new LinearLayout.LayoutParams(-1, dp(48)));
         apply.setOnClickListener(v -> applyActions());
 
+        Button exportWorkspace = new Button(this);
+        exportWorkspace.setText("تصدير مساحة العمل ZIP");
+        exportWorkspace.setAllCaps(false);
+        root.addView(exportWorkspace, new LinearLayout.LayoutParams(-1, dp(44)));
+        exportWorkspace.setOnClickListener(v -> {
+            Intent i = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+            i.addCategory(Intent.CATEGORY_OPENABLE);
+            i.setType("application/zip");
+            i.putExtra(Intent.EXTRA_TITLE, "MiMaxAi-workspace.zip");
+            startActivityForResult(i, EXPORT_WORKSPACE);
+        });
+
         Button back = new Button(this);
         back.setText("العودة إلى Mi_Max Ai");
         back.setAllCaps(false);
@@ -111,7 +129,7 @@ public class AgentActivity extends Activity {
 
     private void pickFile() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
-        i.setType("text/*");
+        i.setType("*/*");
         i.addCategory(Intent.CATEGORY_OPENABLE);
         try { startActivityForResult(i, PICK_FILE); }
         catch (Exception e) { toast("تعذر فتح منتقي الملفات"); }
@@ -119,21 +137,100 @@ public class AgentActivity extends Activity {
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (requestCode != PICK_FILE || resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
         try {
-            getContentResolver().takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION);
-        } catch (Exception ignored) { }
-        try {
-            InputStream in = getContentResolver().openInputStream(uri);
-            byte[] buf = new byte[8192];
-            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
-            int n; while ((n = in.read(buf)) != -1 && out.size() < 100 * 1024) out.write(buf, 0, n);
+            if (requestCode == EXPORT_WORKSPACE) {
+                exportWorkspaceTo(uri);
+                return;
+            }
+            if (requestCode != PICK_FILE) return;
+            String name = displayName(uri);
+            if (name.toLowerCase().endsWith(".zip")) {
+                importZip(uri);
+                attachedName = name;
+                attachedText = "تم استيراد مشروع ZIP إلى مساحة العمل.\\n" + snapshot();
+                toast("تم فك المشروع داخل مساحة العمل");
+            } else {
+                InputStream in = getContentResolver().openInputStream(uri);
+                byte[] buf = new byte[8192];
+                java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+                int n; while ((n = in.read(buf)) != -1 && out.size() < 100 * 1024) out.write(buf, 0, n);
+                in.close();
+                attachedText = new String(out.toByteArray(), "UTF-8");
+                attachedName = name;
+                toast("تم إرفاق الملف: " + attachedName);
+            }
+        } catch (Exception e) { toast("تعذرت العملية: " + e.getMessage()); }
+    }
+
+
+    private String displayName(Uri uri) {
+        Cursor c = getContentResolver().query(uri, null, null, null, null);
+        if (c != null) {
+            try {
+                int i = c.getColumnIndex(OpenableColumns.DISPLAY_NAME);
+                if (i >= 0 && c.moveToFirst()) return c.getString(i);
+            } finally { c.close(); }
+        }
+        return uri.getLastPathSegment() == null ? "attached.txt" : uri.getLastPathSegment();
+    }
+
+    private void importZip(Uri uri) throws Exception {
+        InputStream raw = getContentResolver().openInputStream(uri);
+        ZipInputStream zip = new ZipInputStream(raw);
+        byte[] buffer = new byte[8192];
+        long total = 0;
+        int count = 0;
+        ZipEntry entry;
+        while ((entry = zip.getNextEntry()) != null) {
+            if (++count > 500) throw new Exception("المشروع يحتوي على أكثر من 500 عنصر.");
+            String name = entry.getName().replace('\\\\', '/');
+            if (name.startsWith("/") || name.contains("../") || name.equals("..") || name.contains(":"))
+                throw new Exception("مسار غير آمن داخل ملف ZIP.");
+            File out = new File(workspace, name);
+            String base = workspace.getCanonicalPath();
+            String full = out.getCanonicalPath();
+            if (!full.startsWith(base + File.separator) && !full.equals(base))
+                throw new Exception("مسار خارج مساحة العمل.");
+            if (entry.isDirectory()) out.mkdirs();
+            else {
+                File parent = out.getParentFile();
+                if (parent != null) parent.mkdirs();
+                FileOutputStream fos = new FileOutputStream(out);
+                int n;
+                while ((n = zip.read(buffer)) != -1) {
+                    total += n;
+                    if (total > 50L * 1024 * 1024) {
+                        fos.close();
+                        throw new Exception("حجم الملفات بعد فك الضغط تجاوز 50MB.");
+                    }
+                    fos.write(buffer, 0, n);
+                }
+                fos.close();
+            }
+            zip.closeEntry();
+        }
+        zip.close();
+    }
+
+    private void exportWorkspaceTo(Uri uri) throws Exception {
+        OutputStream raw = getContentResolver().openOutputStream(uri);
+        ZipOutputStream zip = new ZipOutputStream(raw);
+        ArrayList<File> files = new ArrayList<>();
+        collect(workspace, files);
+        byte[] buffer = new byte[8192];
+        for (File f : files) {
+            String rel = workspace.toURI().relativize(f.toURI()).getPath();
+            zip.putNextEntry(new ZipEntry(rel));
+            FileInputStream in = new FileInputStream(f);
+            int n; while ((n = in.read(buffer)) != -1) zip.write(buffer, 0, n);
             in.close();
-            attachedText = new String(out.toByteArray(), "UTF-8");
-            attachedName = uri.getLastPathSegment() == null ? "attached.txt" : uri.getLastPathSegment();
-            toast("تم إرفاق الملف: " + attachedName);
-        } catch (Exception e) { toast("تعذر قراءة الملف"); }
+            zip.closeEntry();
+        }
+        zip.finish();
+        zip.close();
+        toast("تم تصدير ملفات مساحة العمل");
     }
 
     private String snapshot() {
