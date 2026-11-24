@@ -530,14 +530,14 @@ public class MainActivity extends Activity {
         LinearLayout w = new LinearLayout(this);
         w.setPadding(dp(20), dp(8), dp(20), 0);
         w.addView(e, new LinearLayout.LayoutParams(-1, -2));
-        gb().setTitle(title).setView(w)
-                .setPositiveButton("موافق", (d0, w0) -> cb.on(e.getText().toString()))
-                .setNegativeButton("إلغاء", null).show();
+        gb().setTitle(L10n.text(this, title)).setView(w)
+                .setPositiveButton(L10n.text(this, "موافق"), (d0, w0) -> cb.on(e.getText().toString()))
+                .setNegativeButton(L10n.text(this, "إلغاء"), null).show();
     }
 
     Button small(String t, View.OnClickListener l) {
         Button b = new Button(this);
-        b.setText(t);
+        b.setText(L10n.text(this, t));
         b.setAllCaps(false);
         b.setTextSize(13);
         b.setTextColor(TX);
