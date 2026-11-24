@@ -42,13 +42,21 @@ public class ExtensionDeveloperActivity extends Activity {
                 m.put("description", "إضافة تم إنشاؤها باستخدام Mi_Max Extension Developer.");
                 m.put("runtime", "javascript".equals(h) ? "javascript" : "declarative");
                 JSONObject action = new JSONObject(); action.put("label", label.getText().toString().trim().isEmpty() ? safeName : label.getText().toString().trim()); action.put("handler", h);
-                m.put("action", action); m.put("permissions", new org.json.JSONArray());
+                m.put("action", action);
+                org.json.JSONArray perms = new org.json.JSONArray();
+                for (String permission : new String[]{"ui_control", "theme_control", "app_settings", "app_navigation", "read_selected_file", "write_selected_file", "manage_extensions"}) perms.put(permission);
+                m.put("permissions", perms);
                 File dir = new File(getFilesDir(), "extension_projects/" + safeId); if (!dir.exists() && !dir.mkdirs()) throw new Exception("تعذر إنشاء مجلد المشروع.");
                 File out = new File(dir, "manifest.json"); FileOutputStream stream = new FileOutputStream(out); stream.write(m.toString(2).getBytes("UTF-8")); stream.close();
                 if ("javascript".equals(h)) {
                     File js = new File(dir, "main.js");
                     FileOutputStream script = new FileOutputStream(js);
-                    script.write("api.toast(1);".getBytes("UTF-8"));
+                    script.write(("// Mi_Max Ai Extension API v2.0\n" +
+                            "api.toast('Hello from your extension');\n" +
+                            "// api.showUi(JSON.stringify({title:'My extension',items:[{type:'text',text:'Welcome'},{type:'button',text:'Open Logo tool',action:'tool:logo_bin'}]}));\n" +
+                            "// api.applyTheme(JSON.stringify({base:'#10131F',surface:'#1B2030',surface2:'#252C40',line:'#39425B',tx:'#F3F5FF',mut:'#A8B0C8',ac:'#9A7BFF',er:'#FF6B86'}));\n" +
+                            "// api.setAppSetting('temp','0.8');\n" +
+                            "// api.openTool('extensions');\n").getBytes("UTF-8"));
                     script.close();
                 }
                 new android.app.AlertDialog.Builder(this).setTitle("تم إنشاء القالب").setMessage(out.getAbsolutePath() + "\nيمكنك ضغط مجلد المشروع إلى ملف .mt1 بعد إضافة ملفاتك.").setPositiveButton("حسناً", null).show();
