@@ -202,12 +202,6 @@ public class MainActivity extends Activity {
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        ExtensionState.clearActive(this);
-    }
-
-    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (tts != null) tts.shutdown();
@@ -558,6 +552,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        ExtensionState.clearActive(this);
         if (tab.equals("files") && files != null && files.pendingPermission) {
             files.pendingPermission = false;
             showFiles();
