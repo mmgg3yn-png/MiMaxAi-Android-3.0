@@ -20,6 +20,20 @@ ROOT.mkdir(parents=True, exist_ok=True)
 PARTITIONS = {"boot", "vendor_boot", "init_boot", "recovery", "vbmeta", "dtbo", "super"}
 GETVARS = {"all", "product", "unlocked", "current-slot", "slot-count", "is-userspace", "secure", "version-bootloader"}
 
+def find_android_project():
+    candidates = []
+    bases = [ROOT, ROOT / "agent_upload"]
+    for base in bases:
+        if (base / "settings.gradle").is_file() and (base / "app").is_dir():
+            candidates.append(base)
+        if base.is_dir():
+            for child in base.iterdir():
+                if child.is_dir() and (child / "settings.gradle").is_file() and (child / "app").is_dir():
+                    candidates.append(child)
+    if len(candidates) != 1:
+        raise ValueError("Put exactly one Android project (settings.gradle + app folder) in workspace or agent_upload.")
+    return candidates[0]
+
 def safe_file(name):
     p = (ROOT / name).resolve()
     if ROOT.resolve() not in p.parents or not p.is_file():
@@ -54,14 +68,7 @@ def execute(command, confirm):
         if args[1:] in (["--version"], ["-version"], ["-v"]):
             pass
         elif tool == "gradle" and args[1:] in (["--no-daemon", ":app:assembleDebug"], ["--no-daemon", "assembleDebug"]):
-            candidates = []
-            if (ROOT / "settings.gradle").is_file() and (ROOT / "app").is_dir():
-                candidates.append(ROOT)
-            for child in ROOT.iterdir():
-                if child.is_dir() and (child / "settings.gradle").is_file() and (child / "app").is_dir():
-                    candidates.append(child)
-            if len(candidates) != 1:
-                raise ValueError("Put one Android project (settings.gradle + app folder) in workspace.")
+            find_android_project()
             timeout = 900
         else:
             raise ValueError("Only version checks and the approved Gradle Debug build are allowed.")
@@ -113,13 +120,7 @@ def execute(command, confirm):
 
     workdir = ROOT
     if tool == "gradle":
-        candidates = []
-        if (ROOT / "settings.gradle").is_file() and (ROOT / "app").is_dir():
-            candidates.append(ROOT)
-        for child in ROOT.iterdir():
-            if child.is_dir() and (child / "settings.gradle").is_file() and (child / "app").is_dir():
-                candidates.append(child)
-        workdir = candidates[0]
+        workdir = find_android_project()
     p = subprocess.run([exe] + args[1:], cwd=str(workdir), capture_output=True, text=True, timeout=timeout, shell=False)
     output = (p.stdout or "") + (("\n" + p.stderr) if p.stderr else "")
     return {"ok": p.returncode == 0, "exit_code": p.returncode, "output": output[-20000:]}
@@ -158,6 +159,10 @@ class Handler(BaseHTTPRequestHandler):
                 if n > 100 * 1024 * 1024:
                     raise ValueError("ZIP upload limit is 100MB.")
                 raw = self.rfile.read(n)
+                upload_root = ROOT / "agent_upload"
+                if upload_root.exists():
+                    shutil.rmtree(upload_root)
+                upload_root.mkdir(parents=True, exist_ok=True)
                 count = 0
                 total = 0
                 with zipfile.ZipFile(io.BytesIO(raw)) as archive:
@@ -168,9 +173,10 @@ class Handler(BaseHTTPRequestHandler):
                         name = item.filename.replace("\\", "/")
                         if name.startswith("/") or name.startswith("../") or "/../" in name or name == ".." or ":" in name:
                             raise ValueError("Unsafe ZIP entry path.")
-                        target = (ROOT / name).resolve()
-                        if ROOT.resolve() not in target.parents and target != ROOT.resolve():
-                            raise ValueError("ZIP entry escapes workspace.")
+                        upload_root = ROOT / "agent_upload"
+                        target = (upload_root / name).resolve()
+                        if upload_root.resolve() not in target.parents and target != upload_root.resolve():
+                            raise ValueError("ZIP entry escapes upload workspace.")
                         if item.is_dir():
                             target.mkdir(parents=True, exist_ok=True)
                             continue
@@ -180,7 +186,7 @@ class Handler(BaseHTTPRequestHandler):
                         target.parent.mkdir(parents=True, exist_ok=True)
                         with archive.open(item) as src, open(target, "wb") as dst:
                             shutil.copyfileobj(src, dst)
-                return self.send_json(200, {"ok": True, "files": count, "bytes": total, "workspace": str(ROOT)})
+                return self.send_json(200, {"ok": True, "files": count, "bytes": total, "workspace": str(upload_root)})
             if n > 100000:
                 raise ValueError("Invalid command request size.")
             data = json.loads(self.rfile.read(n).decode("utf-8"))
