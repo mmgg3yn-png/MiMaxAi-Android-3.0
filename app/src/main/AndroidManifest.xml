@@ -22,6 +22,7 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
+        <activity android:name=".ExtensionActivity" android:exported="false" />
         <activity android:name=".BackupActivity" android:exported="false" />
         <activity android:name=".RemotePcActivity" android:exported="false" />
         <activity android:name=".AgentActivity" android:exported="false" />
