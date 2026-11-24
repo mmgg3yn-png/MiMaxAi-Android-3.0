@@ -1577,6 +1577,7 @@ public class MainActivity extends Activity {
         p.addView(row("DL", "إعدادات التنزيل", "خادم تنزيل لمواقع مثل يوتيوب", v -> openSub("dl")));
         p.addView(row("WEB", "المتصفح المدمج", "تصفح المواقع والتنزيلات داخل التطبيق", v -> startActivity(new Intent(MainActivity.this, BrowserActivity.class))));
         p.addView(row("TERM", "Terminal محلي", "أوامر Android داخل مساحة عمل آمنة", v -> startActivity(new Intent(MainActivity.this, TerminalActivity.class))));
+        p.addView(row("AGENT", "AI Agent", "تحليل ملفات مساحة العمل وإنشاء تعديلات بموافقتك", v -> startActivity(new Intent(MainActivity.this, AgentActivity.class))));
         p.addView(row("UI", "المظهر", (style == 1 ? "زجاج سائل" : style == 2 ? "Material 3" : "عادي") + " — " + th.nameAr, v -> openSub("look")));
         p.addView(row("DEV", "المطور والشكاوى", "محمد السعيد علي", v -> openSub("dev")));
         if (Store.flag("devOpts", false)) p.addView(row("DEV+", "خيارات المطور", "ألوان مخصصة لكل عنصر", v -> openSub("devopts")));
