@@ -23,7 +23,7 @@ final class ExtensionState {
         if (id == null || id.isEmpty()) return;
         int failures = prefs(c).getInt("failures." + id, 0) + 1;
         prefs(c).edit().putInt("failures." + id, failures).putBoolean("enabled." + id, false)
-                .putString("recovery_id", id).remove("active_id").remove("active_at").apply();
+                .putString("recovery_id", id).remove("active_id").remove("active_at").commit();
         appendLog(c, id, "تعطيل تلقائي بعد تعطل التطبيق: " + String.valueOf(error));
     }
     static void appendLog(Context c, String id, String message) {
