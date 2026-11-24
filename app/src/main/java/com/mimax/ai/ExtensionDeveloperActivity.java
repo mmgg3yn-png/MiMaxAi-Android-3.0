@@ -48,7 +48,7 @@ public class ExtensionDeveloperActivity extends Activity {
                 if ("javascript".equals(h)) {
                     File js = new File(dir, "main.js");
                     FileOutputStream script = new FileOutputStream(js);
-                    script.write("api.toast(\\\"Plugin loaded\\\");".getBytes("UTF-8"));
+                    script.write("api.toast(1);".getBytes("UTF-8"));
                     script.close();
                 }
                 new android.app.AlertDialog.Builder(this).setTitle("تم إنشاء القالب").setMessage(out.getAbsolutePath() + "\nيمكنك ضغط مجلد المشروع إلى ملف .mt1 بعد إضافة ملفاتك.").setPositiveButton("حسناً", null).show();
