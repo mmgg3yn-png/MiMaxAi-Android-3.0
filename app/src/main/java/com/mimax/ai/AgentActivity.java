@@ -185,7 +185,7 @@ public class AgentActivity extends Activity {
         ZipEntry entry;
         while ((entry = zip.getNextEntry()) != null) {
             if (++count > 500) throw new Exception("المشروع يحتوي على أكثر من 500 عنصر.");
-            String name = entry.getName().replace('\\\\', '/');
+            String name = entry.getName().replace('\\', '/');
             if (name.startsWith("/") || name.contains("../") || name.equals("..") || name.contains(":"))
                 throw new Exception("مسار غير آمن داخل ملف ZIP.");
             File out = new File(workspace, name);
