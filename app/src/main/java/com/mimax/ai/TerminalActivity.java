@@ -131,7 +131,7 @@ public class TerminalActivity extends Activity {
 
     private String runCommand(String raw) {
         if (raw.length() > 500) return "خطأ: الأمر طويل جداً.";
-        if (raw.matches(".*[;&|<>\\u0060$\\\\].*") || raw.contains("$(") || raw.contains(".."))
+        if (raw.matches(".*[;&|<>$\\\\].*") || raw.indexOf(96) >= 0 || raw.contains(".."))
             return "مرفوض: الرموز المركبة ومسارات الرجوع للخلف غير مسموحة.";
         String[] a = raw.split("\\s+");
         String cmd = a[0];
