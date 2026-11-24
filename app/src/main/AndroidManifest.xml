@@ -22,6 +22,7 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
+        <activity android:name=".LogoBinExtractorActivity" android:exported="false" />
         <activity android:name=".ExtensionManagerActivity" android:exported="false" />
         <activity android:name=".CapabilityActivity" android:exported="false" />
         <activity android:name=".BackupActivity" android:exported="false" />
