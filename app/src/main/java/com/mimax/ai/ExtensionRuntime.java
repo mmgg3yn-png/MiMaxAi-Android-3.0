@@ -35,6 +35,9 @@ final class ExtensionRuntime {
             File manifest = new File(dir, "manifest.json");
             try {
                 JSONObject m = readManifest(manifest);
+                String id = m.optString("id", dir.getName());
+                if (!ExtensionState.enabled(context, id)) continue;
+                if (!ExtensionState.permissionGranted(context, id, "read_selected_file")) continue;
                 JSONObject action = m.optJSONObject("file_action");
                 if (action == null) continue;
                 String exactName = action.optString("filename", "");
@@ -71,6 +74,16 @@ final class ExtensionRuntime {
         if (!extensionId.isEmpty() && !ExtensionState.enabled(activity, extensionId)) {
             Toast.makeText(activity, "هذه الإضافة معطلة. افتح وضع الصيانة لإعادة تفعيلها.", Toast.LENGTH_LONG).show();
             return;
+        }
+        JSONArray required = manifest.optJSONArray("permissions");
+        if (!extensionId.isEmpty() && required != null) {
+            for (int i = 0; i < required.length(); i++) {
+                String permission = required.optString(i, "");
+                if (!permission.isEmpty() && !ExtensionState.permissionGranted(activity, extensionId, permission)) {
+                    Toast.makeText(activity, "تحتاج الإضافة إلى تفعيل الصلاحية: " + permission + " من مدير الإضافات.", Toast.LENGTH_LONG).show();
+                    return;
+                }
+            }
         }
         if (!extensionId.isEmpty()) ExtensionState.begin(activity, extensionId);
         JSONObject action = manifest.optJSONObject("action");
