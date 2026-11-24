@@ -49,7 +49,7 @@ public class ExtensionManagerActivity extends Activity {
         page.addView(title);
 
         TextView info = new TextView(this);
-        info.setText("إضافات مدمجة وأخرى مستوردة. يتم فحص ملفات .mt1 ولا تُنفّذ ملفاتها البرمجية تلقائياً.");
+        info.setText("إضافات .mt1 قابلة للتثبيت والتحديث دون إعادة بناء التطبيق. شغّل الإضافة وامنحها الصلاحيات المطلوبة من شاشة الصلاحيات.");
         info.setTextColor(th.mut);
         info.setTextSize(13);
         page.addView(info);
@@ -187,7 +187,7 @@ public class ExtensionManagerActivity extends Activity {
         }
         int minVersion = manifest.optInt("min_app_version", 30);
         int maxSdk = manifest.optInt("max_android_sdk", 1000);
-        if (minVersion > 30) throw new Exception("هذه الإضافة تتطلب إصدار تطبيق أحدث.");
+        if (minVersion > 32) throw new Exception("هذه الإضافة تتطلب إصدار تطبيق أحدث.");
         if (android.os.Build.VERSION.SDK_INT > maxSdk) throw new Exception("الإضافة غير متوافقة مع إصدار Android الحالي.");
         File target = new File(root, id);
         if (target.exists()) {
