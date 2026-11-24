@@ -162,19 +162,25 @@ public class BrowserActivity extends Activity {
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, String target) { return handleUrl(target); }
             @Override public void onPageFinished(WebView view, String target) {
-                if (active == index) address.setText(target);
+                int currentIndex = tabs.indexOf(view);
+                if (currentIndex < 0) return;
+                if (active == currentIndex) address.setText(target);
                 saveHistory(target);
-                updateTabLabel(index, view.getTitle());
+                updateTabLabel(currentIndex, view.getTitle());
             }
         });
         web.setWebChromeClient(new WebChromeClient() {
             @Override public void onProgressChanged(WebView view, int value) {
-                if (active == index) {
+                int currentIndex = tabs.indexOf(view);
+                if (currentIndex >= 0 && active == currentIndex) {
                     progress.setProgress(value);
                     progress.setVisibility(value >= 100 ? View.GONE : View.VISIBLE);
                 }
             }
-            @Override public void onReceivedTitle(WebView view, String title) { updateTabLabel(index, title); }
+            @Override public void onReceivedTitle(WebView view, String title) {
+                int currentIndex = tabs.indexOf(view);
+                if (currentIndex >= 0) updateTabLabel(currentIndex, title);
+            }
         });
         web.setDownloadListener((target, ua, disposition, mime, length) -> download(target, ua, disposition, mime));
         tabs.add(web);
@@ -201,14 +207,18 @@ public class BrowserActivity extends Activity {
         Theme th = Theme.get(Store.theme());
         for (int i = 0; i < tabs.size(); i++) {
             final int at = i;
-            Button b = button((i == active ? "● " : "") + titles.get(i) + "  ×", th);
-            b.setBackgroundColor(i == active ? th.surface2 : th.surface);
-            tabStrip.addView(b, new LinearLayout.LayoutParams(dp(145), dp(38)));
-            b.setOnClickListener(v -> {
-                if (tabs.size() == 1) { current().loadUrl(HOME); return; }
-                closeTab(at);
-            });
-            b.setOnLongClickListener(v -> { selectTab(at); return true; });
+            LinearLayout chip = new LinearLayout(this);
+            chip.setGravity(Gravity.CENTER_VERTICAL);
+            chip.setBackgroundColor(i == active ? th.surface2 : th.surface);
+            Button select = button((i == active ? "● " : "") + titles.get(i), th);
+            chip.addView(select, new LinearLayout.LayoutParams(dp(118), dp(38)));
+            select.setOnClickListener(v -> selectTab(at));
+            Button close = button("×", th);
+            chip.addView(close, new LinearLayout.LayoutParams(dp(34), dp(38)));
+            close.setOnClickListener(v -> closeTab(at));
+            LinearLayout.LayoutParams cp = new LinearLayout.LayoutParams(-2, dp(38));
+            cp.rightMargin = dp(4);
+            tabStrip.addView(chip, cp);
         }
     }
 
@@ -290,8 +300,11 @@ public class BrowserActivity extends Activity {
         try {
             JSONArray a = new JSONArray(Store.get("browserBookmarks", "[]"));
             String url = current().getUrl();
-            for (int i=0;i<a.length();i++) if(url.equals(a.optJSONObject(i).optString("url"))) {
-                Toast.makeText(this,"الرابط محفوظ مسبقاً",Toast.LENGTH_SHORT).show(); return;
+            for (int i=0;i<a.length();i++) {
+                org.json.JSONObject existing = a.optJSONObject(i);
+                if (existing != null && url.equals(existing.optString("url"))) {
+                    Toast.makeText(this,"الرابط محفوظ مسبقاً",Toast.LENGTH_SHORT).show(); return;
+                }
             }
             org.json.JSONObject item = new org.json.JSONObject();
             item.put("title", current().getTitle() == null ? url : current().getTitle());
