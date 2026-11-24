@@ -160,6 +160,9 @@ public class AgentActivity extends Activity {
         back.setAllCaps(false);
         root.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
         back.setOnClickListener(v -> finish());
+
+        // The previous screen built the entire view tree but never attached it to the Activity.
+        setContentView(root);
     }
 
     private void pickFile() {
