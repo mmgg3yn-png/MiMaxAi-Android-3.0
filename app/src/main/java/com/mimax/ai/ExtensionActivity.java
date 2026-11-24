@@ -170,10 +170,13 @@ public class ExtensionActivity extends Activity {
     }
 
     private File buildPackage(JSONObject spec)throws Exception{
-        File out=new File(getCacheDir(),spec.optString("id")+".mt1");
+        String baseId=spec.optString("id");
+        if(baseId.length()>48) baseId=baseId.substring(0,48);
+        String packageId=baseId+"_"+Long.toString(System.currentTimeMillis(),36);
+        File out=new File(getCacheDir(),packageId+".mt1");
         JSONObject manifest=new JSONObject();
         manifest.put("format","MiMaxExtension"); manifest.put("formatVersion",1);
-        manifest.put("apiVersion",1); manifest.put("id",spec.getString("id"));
+        manifest.put("apiVersion",1); manifest.put("id",packageId);
         manifest.put("name",spec.optString("name",spec.getString("id")));
         manifest.put("version","1.0.0"); manifest.put("type","theme");
         manifest.put("description",spec.optString("description","AI generated theme"));
