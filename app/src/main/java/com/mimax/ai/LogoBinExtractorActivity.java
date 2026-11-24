@@ -100,6 +100,12 @@ public class LogoBinExtractorActivity extends Activity {
         back.setOnClickListener(v -> finish());
 
         setContentView(page);
+        String inputPath = getIntent().getStringExtra("input_path");
+        if (inputPath != null && !inputPath.trim().isEmpty()) {
+            File input = new File(inputPath);
+            if (input.isFile() && input.canRead()) extract(Uri.fromFile(input));
+            else status.setText("تعذر فتح الملف المحدد من مدير الملفات.");
+        }
     }
 
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
