@@ -1,6 +1,7 @@
 package com.mimax.ai;
 
 import android.app.Activity;
+import android.app.AlertDialog;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
@@ -86,11 +87,19 @@ public class BackupActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
-        try {
-            if (requestCode == EXPORT) exportTo(uri);
-            else if (requestCode == IMPORT) importFrom(uri);
-        } catch (Exception e) {
-            toast("فشلت العملية: " + (e.getMessage() == null ? "خطأ غير معروف" : e.getMessage()));
+        if (requestCode == EXPORT) {
+            try { exportTo(uri); }
+            catch (Exception e) { toast("فشل التصدير: " + (e.getMessage() == null ? "خطأ غير معروف" : e.getMessage())); }
+        } else if (requestCode == IMPORT) {
+            new AlertDialog.Builder(this)
+                    .setTitle("تأكيد استعادة النسخة")
+                    .setMessage("ستُستبدل المحادثات والذاكرة والإعدادات الموجودة بالبيانات داخل الملف. هل تريد المتابعة؟")
+                    .setPositiveButton("استعادة", (d, w) -> {
+                        try { importFrom(uri); }
+                        catch (Exception e) { toast("فشل الاستعادة: " + (e.getMessage() == null ? "خطأ غير معروف" : e.getMessage())); }
+                    })
+                    .setNegativeButton("إلغاء", null)
+                    .show();
         }
     }
 
