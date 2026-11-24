@@ -46,6 +46,25 @@ public class ExtensionRecoveryActivity extends Activity {
             ExtensionState.clearRecovery(this);
             detail.setText("تمت إعادة تفعيل الإضافات.");
         });
+        Button restore = new Button(this);
+        restore.setText("استعادة آخر نسخة سابقة للإضافة");
+        page.addView(restore);
+        restore.setOnClickListener(v -> {
+            if (id.isEmpty()) { detail.setText("لا توجد إضافة محددة لاستعادتها."); return; }
+            File backups = new File(getFilesDir(), "extension_backups/" + id);
+            File[] versions = backups.listFiles();
+            File latest = null;
+            if (versions != null) for (File candidate : versions)
+                if (candidate.isDirectory() && (latest == null || candidate.lastModified() > latest.lastModified())) latest = candidate;
+            if (latest == null) { detail.setText("لا توجد نسخة احتياطية لهذه الإضافة."); return; }
+            File target = new File(ExtensionRuntime.root(this), id);
+            File failed = new File(getCacheDir(), "failed-extension-" + id);
+            if (target.exists() && !target.renameTo(failed)) { detail.setText("تعذر نقل النسخة الحالية."); return; }
+            if (!latest.renameTo(target)) { if (failed.exists()) failed.renameTo(target); detail.setText("فشلت الاستعادة؛ لم نحذف النسخة الحالية."); return; }
+            ExtensionState.setEnabled(this, id, true);
+            ExtensionState.clearRecovery(this);
+            detail.setText("تمت استعادة النسخة السابقة. أعد تشغيل التطبيق عند الحاجة.");
+        });
         Button logs = new Button(this);
         logs.setText("عرض سجل الإضافة المتسببة");
         page.addView(logs);
