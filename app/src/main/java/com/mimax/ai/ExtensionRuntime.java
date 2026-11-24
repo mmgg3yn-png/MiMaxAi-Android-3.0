@@ -97,6 +97,9 @@ final class ExtensionRuntime {
         try {
             Intent intent;
             switch (handler) {
+                case "open_language_pack":
+                    activity.startActivity(new Intent(activity, LanguagePackActivity.class));
+                    return;
                 case "logo_bin_extractor":
                     intent = new Intent(activity, LogoBinExtractorActivity.class);
                     if (selectedFile != null) intent.putExtra("input_path", selectedFile.getAbsolutePath());
