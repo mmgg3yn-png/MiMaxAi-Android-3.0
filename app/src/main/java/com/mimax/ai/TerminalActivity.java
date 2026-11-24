@@ -32,6 +32,7 @@ public class TerminalActivity extends Activity {
     private EditText input;
     private File cwd;
     private File workspace;
+    private Theme appTheme;
     private final Set<String> allowed = new HashSet<>(Arrays.asList(
             "ls", "date", "uname", "getprop", "df", "du", "id", "whoami",
             "head", "tail", "wc", "grep", "which", "env", "stat"
@@ -39,7 +40,7 @@ public class TerminalActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        Theme appTheme = Theme.get(Store.theme());
+        appTheme = Theme.get(Store.theme());
         if (Store.flag("ccOn", false)) appTheme = Theme.custom(appTheme);
         workspace = new File(getFilesDir(), "workspace");
         if (!workspace.exists()) workspace.mkdirs();
