@@ -1,0 +1,12 @@
+{
+  "id": "mimax.logo.bin.extractor",
+  "name": "Logo.bin Extractor",
+  "version": "1.0.0",
+  "description": "استخراج أقسام وصور MediaTek logo.bin إلى PNG أو RGBA",
+  "runtime": "native",
+  "entrypoint": "com.mimax.ai.LogoBinExtractorActivity",
+  "category": "rom-tools",
+  "permissions": ["open_document", "create_document"],
+  "actions": ["inspect", "extract", "export_zip"],
+  "safety": "read-only"
+}
