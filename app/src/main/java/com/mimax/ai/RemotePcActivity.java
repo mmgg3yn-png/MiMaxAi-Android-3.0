@@ -22,6 +22,7 @@ import java.net.URL;
 public class RemotePcActivity extends Activity {
     private EditText host, token, command, confirm;
     private TextView output;
+    private LinearLayout container;
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
 
     @Override public void onCreate(Bundle state) {
@@ -32,6 +33,7 @@ public class RemotePcActivity extends Activity {
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(12), dp(8), dp(12), dp(8));
         root.setBackgroundColor(0xFFF4F6F8);
+        container = root;
 
         TextView title = new TextView(this);
         title.setText("اتصال الكمبيوتر — ADB / Fastboot");
@@ -89,7 +91,7 @@ public class RemotePcActivity extends Activity {
         e.setPadding(dp(10), 0, dp(10), 0);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, dp(48));
         p.topMargin = dp(6);
-        ((LinearLayout) rootView()).addView(e, p);
+        container.addView(e, p);
         return e;
     }
 
