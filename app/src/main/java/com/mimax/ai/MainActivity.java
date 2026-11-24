@@ -1575,6 +1575,8 @@ public class MainActivity extends Activity {
         p.addView(row("TXT", "البرمبت", "تعليمات تحسّن أسلوب الذكاء الاصطناعي", v -> openSub("prompt")));
         p.addView(row("MEM", "الذاكرة", "ما يتذكره عنك (" + mem.size() + ")", v -> openSub("mem")));
         p.addView(row("DL", "إعدادات التنزيل", "خادم تنزيل لمواقع مثل يوتيوب", v -> openSub("dl")));
+        p.addView(row("WEB", "المتصفح المدمج", "تصفح المواقع والتنزيلات داخل التطبيق", v -> startActivity(new Intent(MainActivity.this, BrowserActivity.class))));
+        p.addView(row("TERM", "Terminal محلي", "أوامر Android داخل مساحة عمل آمنة", v -> startActivity(new Intent(MainActivity.this, TerminalActivity.class))));
         p.addView(row("UI", "المظهر", (style == 1 ? "زجاج سائل" : style == 2 ? "Material 3" : "عادي") + " — " + th.nameAr, v -> openSub("look")));
         p.addView(row("DEV", "المطور والشكاوى", "محمد السعيد علي", v -> openSub("dev")));
         if (Store.flag("devOpts", false)) p.addView(row("DEV+", "خيارات المطور", "ألوان مخصصة لكل عنصر", v -> openSub("devopts")));
@@ -2130,7 +2132,7 @@ public class MainActivity extends Activity {
             try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://www.tiktok.com/@xiaomi_12o"))); }
             catch (Exception e) { toast("تعذر فتح الرابط"); }
         }));
-        TextView ver = note("الإصدار 1.3.0");
+        TextView ver = note("الإصدار 3.0.0");
         ver.setGravity(Gravity.CENTER);
         ver.setOnClickListener(v -> {
             long now = System.currentTimeMillis();
