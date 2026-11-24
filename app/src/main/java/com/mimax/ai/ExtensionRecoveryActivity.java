@@ -65,6 +65,17 @@ public class ExtensionRecoveryActivity extends Activity {
             ExtensionState.clearRecovery(this);
             detail.setText("تمت استعادة النسخة السابقة. أعد تشغيل التطبيق عند الحاجة.");
         });
+        Button delete = new Button(this);
+        delete.setText("حذف الإضافة المتسببة");
+        page.addView(delete);
+        delete.setOnClickListener(v -> {
+            if (id.isEmpty()) { detail.setText("لا توجد إضافة محددة للحذف."); return; }
+            File target = new File(ExtensionRuntime.root(this), id);
+            if (deleteTree(target)) {
+                ExtensionState.clearRecovery(this);
+                detail.setText("تم حذف الإضافة المتسببة. يمكنك العودة إلى التطبيق.");
+            } else detail.setText("تعذر حذف الإضافة بالكامل.");
+        });
         Button logs = new Button(this);
         logs.setText("عرض سجل الإضافة المتسببة");
         page.addView(logs);
@@ -77,5 +88,14 @@ public class ExtensionRecoveryActivity extends Activity {
         page.addView(back);
         back.setOnClickListener(v -> { ExtensionState.clearRecovery(this); finish(); });
         setContentView(page);
+    }
+
+    private boolean deleteTree(File file) {
+        if (!file.exists()) return true;
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) for (File child : children) if (!deleteTree(child)) return false;
+        }
+        return file.delete();
     }
 }
