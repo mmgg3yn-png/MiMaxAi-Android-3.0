@@ -39,11 +39,13 @@ public class TerminalActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
+        Theme appTheme = Theme.get(Store.theme());
+        if (Store.flag("ccOn", false)) appTheme = Theme.custom(appTheme);
         workspace = new File(getFilesDir(), "workspace");
         if (!workspace.exists()) workspace.mkdirs();
         cwd = workspace;
-        getWindow().setStatusBarColor(Color.rgb(14, 18, 24));
-        getWindow().setNavigationBarColor(Color.rgb(14, 18, 24));
+        getWindow().setStatusBarColor(appTheme.base);
+        getWindow().setNavigationBarColor(appTheme.base);
         build();
         line("Mi_Max Ai Terminal 3.0", "#7CDBA5");
         line("بيئة Android محلية بصلاحيات التطبيق — بدون root.", "#AAB4C3");
@@ -57,11 +59,11 @@ public class TerminalActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setPadding(dp(10), dp(8), dp(10), dp(8));
-        root.setBackgroundColor(Color.rgb(14, 18, 24));
+        root.setBackgroundColor(appTheme.base);
 
         TextView title = new TextView(this);
         title.setText("Mi_Max Ai  •  Terminal");
-        title.setTextColor(Color.WHITE);
+        title.setTextColor(appTheme.tx);
         title.setTextSize(18);
         title.setGravity(Gravity.CENTER_VERTICAL);
         root.addView(title, new LinearLayout.LayoutParams(-1, dp(44)));
@@ -77,11 +79,11 @@ public class TerminalActivity extends Activity {
         bar.setGravity(Gravity.CENTER_VERTICAL);
         input = new EditText(this);
         input.setSingleLine(true);
-        input.setTextColor(Color.WHITE);
-        input.setHintTextColor(0xFF8995A5);
+        input.setTextColor(appTheme.tx);
+        input.setHintTextColor(appTheme.mut);
         input.setHint("اكتب أمراً...");
         input.setTextSize(14);
-        input.setBackgroundColor(0xFF202936);
+        input.setBackgroundColor(appTheme.surface);
         input.setPadding(dp(10), 0, dp(10), 0);
         input.setInputType(EditorInfo.TYPE_CLASS_TEXT);
         bar.addView(input, new LinearLayout.LayoutParams(0, dp(48), 1));
