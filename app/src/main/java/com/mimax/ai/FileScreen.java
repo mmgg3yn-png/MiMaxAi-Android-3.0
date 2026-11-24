@@ -41,6 +41,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import org.json.JSONObject;
 
 /** مدير الملفات: تصفح كل ذاكرة الهاتف، نسخ/نقل/حذف/إعادة تسمية، وفتح ZIP وboot والصور والوسائط والنصوص. */
 class FileScreen {
@@ -274,9 +275,12 @@ class FileScreen {
         List<String> L = new ArrayList<>();
         final List<ZipScreen.Act> A = new ArrayList<>();
         L.add("فتح"); A.add(() -> open(f));
-        if (f.isFile() && f.getName().toLowerCase(Locale.US).endsWith("logo.bin")) {
-            L.add("فك logo.bin واستخراج الصور");
-            A.add(() -> a.startActivity(new Intent(a, LogoBinExtractorActivity.class)));
+        if (f.isFile()) {
+            for (JSONObject extension : ExtensionRuntime.fileActions(a, f)) {
+                final JSONObject plugin = extension;
+                L.add(plugin.optString("_file_action_label", "تشغيل الإضافة"));
+                A.add(() -> ExtensionRuntime.run(a, plugin, f));
+            }
         }
         if (f.isFile()) { L.add("فتح كنص"); A.add(() -> openText(f)); L.add("فتح كصورة ROM"); A.add(() -> img.open(f)); }
         if (f.isFile() && ApkInstaller.isInstallable(f.getName())) { L.add("تثبيت التطبيق"); A.add(() -> a.installer.install(f)); }
