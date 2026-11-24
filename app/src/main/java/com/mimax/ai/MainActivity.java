@@ -322,7 +322,7 @@ public class MainActivity extends Activity {
 
     TextView tv(String t, int color, float sp) {
         TextView v = new TextView(this);
-        v.setText(t);
+        v.setText(L10n.text(this, t));
         v.setTextColor(color);
         v.setTextSize(sp);
         return v;
@@ -332,7 +332,7 @@ public class MainActivity extends Activity {
 
     Button flat(String t, View.OnClickListener l) {
         Button b = new Button(this);
-        b.setText(t);
+        b.setText(L10n.text(this, t));
         b.setAllCaps(false);
         b.setTextColor(TX);
         b.setTextSize(20);
@@ -600,7 +600,7 @@ public class MainActivity extends Activity {
     }
 
     void header(String t, boolean back, boolean showNew) {
-        title.setText(t);
+        title.setText(L10n.text(this, t));
         backBtn.setVisibility(back ? View.VISIBLE : View.GONE);
         newBtn.setVisibility(showNew ? View.VISIBLE : View.INVISIBLE);
     }
@@ -680,7 +680,7 @@ public class MainActivity extends Activity {
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setLayoutDirection(View.LAYOUT_DIRECTION_RTL);
+        root.setLayoutDirection("en".equals(L10n.language(this)) ? View.LAYOUT_DIRECTION_LTR : View.LAYOUT_DIRECTION_RTL);
         root.setFitsSystemWindows(true);
 
         LinearLayout top = new LinearLayout(this);
@@ -723,7 +723,7 @@ public class MainActivity extends Activity {
         for (int i = 0; i < 5; i++) {
             final int idx = i;
             Button b = new Button(this);
-            b.setText(names[i]);
+            b.setText(L10n.text(this, names[i]));
             b.setAllCaps(false);
             b.setTextSize(12);
             b.setPadding(0, 0, 0, 0);
