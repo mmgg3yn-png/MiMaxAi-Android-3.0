@@ -34,7 +34,7 @@ public class TerminalActivity extends Activity {
     private File workspace;
     private final Set<String> allowed = new HashSet<>(Arrays.asList(
             "ls", "date", "uname", "getprop", "df", "du", "id", "whoami",
-            "head", "tail", "wc", "grep", "find", "which", "env", "stat"
+            "head", "tail", "wc", "grep", "which", "env", "stat"
     ));
 
     @Override public void onCreate(Bundle state) {
@@ -135,7 +135,7 @@ public class TerminalActivity extends Activity {
             return "مرفوض: الرموز المركبة ومسارات الرجوع للخلف غير مسموحة.";
         String[] a = raw.split("\\s+");
         String cmd = a[0];
-        if (cmd.equals("help")) return "الأوامر: help, pwd, ls, cd, mkdir, touch, cat, echo, date, uname, getprop, df, du, id, whoami, head, tail, wc, grep, find, which, env, stat, clear\nكل الملفات محصورة داخل مجلد workspace الخاص بالتطبيق. لا يوجد root أو ADB/Fastboot محلي.";
+        if (cmd.equals("help")) return "الأوامر: help, pwd, ls, cd, mkdir, touch, cat, echo, date, uname, getprop, df, du, id, whoami, head, tail, wc, grep, which, env, stat, clear\nكل الملفات محصورة داخل مجلد workspace الخاص بالتطبيق. لا يوجد root أو ADB/Fastboot محلي.";
         if (cmd.equals("clear")) { runOnUiThread(() -> log.removeAllViews()); return ""; }
         if (cmd.equals("pwd")) return cwd.getAbsolutePath();
         if (cmd.equals("cd")) {
