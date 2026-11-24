@@ -11,21 +11,19 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.InputStream;
-import java.util.ArrayList;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 
 /**
  * Safe .mt1 package manager.
- * An .mt1 file is a ZIP containing manifest.json and optional assets.
- * This first runtime accepts declarative metadata only; it never executes imported code.
+ * Imported .mt1 files are declarative metadata only; bundled native tools are
+ * explicitly listed and launched as app-owned activities.
  */
 public class ExtensionManagerActivity extends Activity {
     private static final int PICK_MT1 = 810;
@@ -50,7 +48,7 @@ public class ExtensionManagerActivity extends Activity {
         page.addView(title);
 
         TextView info = new TextView(this);
-        info.setText("استيراد وإدارة حزم الإضافات. يتم فحص manifest والمسارات والحجم. لا تُنفّذ ملفات الإضافة البرمجية تلقائياً.");
+        info.setText("إضافات مدمجة وأخرى مستوردة. يتم فحص ملفات .mt1 ولا تُنفّذ ملفاتها البرمجية تلقائياً.");
         info.setTextColor(th.mut);
         info.setTextSize(13);
         page.addView(info);
@@ -160,11 +158,13 @@ public class ExtensionManagerActivity extends Activity {
 
     private void render() {
         list.removeAllViews();
+        addBuiltinExtractor();
         File[] dirs = root.listFiles();
         if (dirs == null || dirs.length == 0) {
             TextView empty = new TextView(this);
-            empty.setText("لا توجد إضافات مثبتة. استورد ملف .mt1 يحتوي manifest.json.");
+            empty.setText("لا توجد إضافات مستوردة حالياً.");
             empty.setTextSize(14);
+            empty.setPadding(0, dp(8), 0, dp(8));
             list.addView(empty);
             return;
         }
@@ -194,9 +194,7 @@ public class ExtensionManagerActivity extends Activity {
                     if (deleteTree(dir)) { toast("تمت إزالة الإضافة"); render(); }
                     else toast("تعذرت إزالة بعض الملفات");
                 });
-                LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
-                p.topMargin = dp(8);
-                list.addView(card, p);
+                addCard(card);
             } catch (Exception e) {
                 TextView bad = new TextView(this);
                 bad.setText("إضافة غير صالحة: " + dir.getName());
@@ -204,6 +202,34 @@ public class ExtensionManagerActivity extends Activity {
                 list.addView(bad);
             }
         }
+    }
+
+    private void addBuiltinExtractor() {
+        LinearLayout card = new LinearLayout(this);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setPadding(dp(12), dp(10), dp(12), dp(10));
+        card.setBackgroundColor(Theme.get(Store.theme()).surface);
+        TextView label = new TextView(this);
+        label.setText("Logo.bin Extractor  •  1.0.0");
+        label.setTextSize(16);
+        label.setTextColor(Theme.get(Store.theme()).tx);
+        card.addView(label);
+        TextView desc = new TextView(this);
+        desc.setText("إضافة مدمجة: استخراج صور MediaTek logo.bin إلى PNG أو RGBA وتصديرها كملف ZIP. قراءة فقط.");
+        desc.setTextColor(Theme.get(Store.theme()).mut);
+        card.addView(desc);
+        Button open = new Button(this);
+        open.setText("فتح الإضافة");
+        open.setAllCaps(false);
+        card.addView(open);
+        open.setOnClickListener(v -> startActivity(new Intent(this, LogoBinExtractorActivity.class)));
+        addCard(card);
+    }
+
+    private void addCard(LinearLayout card) {
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(-1, -2);
+        p.topMargin = dp(8);
+        list.addView(card, p);
     }
 
     private boolean deleteTree(File f) {
