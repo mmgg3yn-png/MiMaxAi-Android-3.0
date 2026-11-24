@@ -11,7 +11,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-/** التخزين المحلي: الإعدادات والمحادثات والذاكرة، مع فصل بيانات كل مستخدم بواسطة Firebase UID. */
+/** التخزين المحلي لإعدادات التطبيق والمحادثات والذاكرة والملف الشخصي. */
 public class Store {
 
     public static class Msg {
@@ -34,7 +34,28 @@ public class Store {
         if (sp == null) {
             Context app = c.getApplicationContext();
             sp = (app != null ? app : c).getSharedPreferences("mm", Context.MODE_PRIVATE);
+            migrateLegacyAccountData();
         }
+    }
+
+    /**
+     * ينقل بيانات الجلسة القديمة إلى مساحة محلية واحدة قبل إزالة تسجيل الدخول.
+     * لا يحذف بيانات المستخدم القديمة، ويحتفظ بنسخة محلية عند عدم وجودها.
+     */
+    private static void migrateLegacyAccountData() {
+        String uid = sp.getString("session", "");
+        if (uid == null || uid.trim().isEmpty()) return;
+        SharedPreferences.Editor e = sp.edit();
+        String[] keys = {"chats", "mem", "prompt", "profileName", "publicId", "deletedChats"};
+        for (String key : keys) {
+            String oldValue = sp.getString(key + ":" + uid, null);
+            String localKey = key + ":guest";
+            if (oldValue != null && sp.getString(localKey, null) == null) {
+                e.putString(localKey, oldValue);
+            }
+        }
+        e.remove("session").remove("googleName").remove("googleEmail");
+        e.apply();
     }
 
     public static String newId() {
@@ -83,7 +104,7 @@ public class Store {
 
     // ---- الحساب ----
     public static String session() { return get("session", ""); }
-    public static String ns() { String s = session(); return s.isEmpty() ? "guest" : s; }
+    public static String ns() { return "guest"; }
 
     /** جلسة Firebase: نخزن UID فقط لربط بيانات الجهاز بحساب Google المصادق عليه. */
     public static void setGoogleSession(String uid, String displayName, String email) {
@@ -137,17 +158,15 @@ public class Store {
         sp.edit().putString("session", "").putString("googleName", "").putString("googleEmail", "").apply();
     }
 
-    /** يمسح بيانات هذا الجهاز للحساب الحالي فقط؛ حذف حساب Google نفسه يتم عبر Firebase ويتطلب إعادة مصادقة. */
-    public static void clearCurrentUserData() {
-        String uid = session();
-        if (uid == null || uid.isEmpty()) return;
+    /** يمسح المحادثات والذاكرة والبرمبت والملف الشخصي المحلية فقط. */
+    public static void clearLocalData() {
         sp.edit()
-                .remove("chats:" + uid)
-                .remove("mem:" + uid)
-                .remove("prompt:" + uid)
-                .remove("profileName:" + uid)
-                .remove("publicId:" + uid)
-                .remove("deletedChats:" + uid)
+                .remove("chats:guest")
+                .remove("mem:guest")
+                .remove("prompt:guest")
+                .remove("profileName:guest")
+                .remove("publicId:guest")
+                .remove("deletedChats:guest")
                 .apply();
     }
 
