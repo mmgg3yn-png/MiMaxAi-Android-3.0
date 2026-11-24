@@ -28,4 +28,6 @@ android {
 
 
 dependencies {
+    // Sandboxed JavaScript engine for installable .mt1 extensions.
+    implementation 'org.mozilla:rhino:1.7.15'
 }
