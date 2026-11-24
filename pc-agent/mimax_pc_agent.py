@@ -44,10 +44,31 @@ def execute(command, confirm):
         raise ValueError("Empty command.")
     tool = args[0].lower()
     exe = shutil.which(tool)
-    if not exe:
-        raise RuntimeError(tool + " is not installed or not in PATH.")
+    timeout = 120
 
-    if tool == "adb":
+    if tool in {"python", "python3", "node", "npm", "java", "gradle"}:
+        if not exe:
+            raise RuntimeError(tool + " is not installed or not in PATH.")
+        if args[1:] in (["--version"], ["-version"], ["-v"]):
+            pass
+        elif tool == "gradle" and args[1:] in (["--no-daemon", ":app:assembleDebug"], ["--no-daemon", "assembleDebug"]):
+            if not (ROOT / "settings.gradle").is_file() or not (ROOT / "app").is_dir():
+                raise ValueError("Extract an Android project into pc-agent/workspace first.")
+            timeout = 900
+        else:
+            raise ValueError("Only version checks and the approved Gradle Debug build are allowed.")
+    elif tool == "git":
+        if not exe:
+            raise RuntimeError("git is not installed or not in PATH.")
+        if args[1:] not in (["--version"], ["status"], ["log", "-5"], ["diff", "--stat"]):
+            raise ValueError("Git is read-only here: --version, status, log -5, diff --stat.")
+    elif tool in ("ls", "dir", "pwd"):
+        if args[1:]:
+            raise ValueError("These directory commands show only the workspace root.")
+        return {"ok": True, "exit_code": 0, "output": str(ROOT) if tool == "pwd" else "\n".join(sorted(os.listdir(ROOT)))}
+    elif tool == "adb":
+        if not exe:
+            raise RuntimeError("adb is not installed or not in PATH.")
         if args[1:] in (["version"], ["devices"], ["devices", "-l"], ["get-state"]):
             pass
         elif len(args) in (3, 4) and args[1:3] == ["shell", "getprop"]:
@@ -59,8 +80,10 @@ def execute(command, confirm):
         elif len(args) == 3 and args[1] == "install" and args[2].lower().endswith(".apk"):
             args[2] = str(safe_file(args[2]))
         else:
-            raise ValueError("ADB command not allowed. Allowed: version, devices, get-state, shell getprop, logcat -d, install <APK in workspace>.")
+            raise ValueError("ADB allowed: version, devices, get-state, shell getprop, logcat -d, install <APK in workspace>.")
     elif tool == "fastboot":
+        if not exe:
+            raise RuntimeError("fastboot is not installed or not in PATH.")
         if args[1:] == ["devices"]:
             pass
         elif len(args) == 3 and args[1] == "getvar" and args[2] in GETVARS:
@@ -76,11 +99,11 @@ def execute(command, confirm):
             args[3] = str(safe_file(args[3]))
             exe = one_device("fastboot")
         else:
-            raise ValueError("Fastboot command not allowed. Allowed: devices, getvar, reboot, guarded flash.")
+            raise ValueError("Fastboot allowed: devices, getvar, reboot, guarded flash.")
     else:
-        raise ValueError("Only adb and fastboot are supported.")
+        raise ValueError("Command not supported by the PC Bridge.")
 
-    p = subprocess.run([exe] + args[1:], cwd=str(ROOT), capture_output=True, text=True, timeout=120)
+    p = subprocess.run([exe] + args[1:], cwd=str(ROOT), capture_output=True, text=True, timeout=timeout, shell=False)
     output = (p.stdout or "") + (("\n" + p.stderr) if p.stderr else "")
     return {"ok": p.returncode == 0, "exit_code": p.returncode, "output": output[-20000:]}
 
