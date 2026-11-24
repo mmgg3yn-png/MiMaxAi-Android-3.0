@@ -64,6 +64,11 @@ public class ExtensionManagerActivity extends Activity {
         developer.setAllCaps(false);
         page.addView(developer, new LinearLayout.LayoutParams(-1, dp(44)));
         developer.setOnClickListener(v -> startActivity(new Intent(this, ExtensionDeveloperActivity.class)));
+        Button store = new Button(this);
+        store.setText("متجر الإضافات");
+        store.setAllCaps(false);
+        page.addView(store, new LinearLayout.LayoutParams(-1, dp(44)));
+        store.setOnClickListener(v -> startActivity(new Intent(this, ExtensionStoreActivity.class)));
         Button install = new Button(this);
         install.setText("استيراد إضافة .mt1");
         install.setAllCaps(false);
