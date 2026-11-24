@@ -37,6 +37,8 @@ final class ExtensionRuntime {
                 JSONObject m = readManifest(manifest);
                 JSONObject action = m.optJSONObject("file_action");
                 if (action == null) continue;
+                String exactName = action.optString("filename", "");
+                if (!exactName.isEmpty() && !exactName.equalsIgnoreCase(selected.getName())) continue;
                 JSONArray extensions = action.optJSONArray("extensions");
                 if (extensions == null) continue;
                 for (int i = 0; i < extensions.length(); i++) {
