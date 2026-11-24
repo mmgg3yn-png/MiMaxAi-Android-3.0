@@ -101,7 +101,7 @@ public final class ExtensionEngine {
             if(m.optInt("apiVersion",0)>API_VERSION) throw new Exception("الإضافة تحتاج إصدار API أحدث");
             if(m.optInt("apiVersion",0)<1) throw new Exception("apiVersion مفقود أو غير صالح");
             File target=new File(root,id);
-            if(target.exists()) deleteTree(target);
+            if(target.exists()) throw new Exception("هذه الإضافة مثبتة بالفعل. احذف النسخة الحالية أو استخدم معرّفاً مختلفاً.");
             if(!stage.renameTo(target)) throw new Exception("تعذر اعتماد ملفات الإضافة");
             app.getSharedPreferences("mm_extensions",0).edit().putBoolean("enabled_"+id,false).apply();
             return find(id);
@@ -117,16 +117,23 @@ public final class ExtensionEngine {
 
     public void setEnabled(String id, boolean enabled) throws Exception {
         Item item=find(id); if(item==null) throw new Exception("الإضافة غير موجودة");
-        app.getSharedPreferences("mm_extensions",0).edit().putBoolean("enabled_"+id,enabled).apply();
+        android.content.SharedPreferences prefs=app.getSharedPreferences("mm_extensions",0);
+        if(enabled) {
+            saveThemeSnapshot(prefs);
+            for(Item other:list()) if(!other.id.equals(id) && "theme".equals(other.manifest.optString("type","theme")))
+                prefs.edit().putBoolean("enabled_"+other.id,false).apply();
+        }
+        prefs.edit().putBoolean("enabled_"+id,enabled).apply();
         if(enabled) applyTheme(item);
-        else resetTheme();
+        else if(!hasEnabledTheme()) resetTheme(prefs);
     }
 
     public void delete(String id) throws Exception {
         Item item=find(id); if(item==null) return;
-        app.getSharedPreferences("mm_extensions",0).edit().remove("enabled_"+id).apply();
+        android.content.SharedPreferences prefs=app.getSharedPreferences("mm_extensions",0);
+        prefs.edit().remove("enabled_"+id).apply();
         deleteTree(item.dir);
-        resetTheme();
+        if(!hasEnabledTheme()) resetTheme(prefs);
     }
 
     public void applyEnabledThemes() {
@@ -151,8 +158,35 @@ public final class ExtensionEngine {
         Store.setFlag("ccOn",true);
     }
 
-    private void resetTheme() {
+    private boolean hasEnabledTheme() {
+        for(Item i:list()) if(i.enabled && "theme".equals(i.manifest.optString("type","theme"))) return true;
+        return false;
+    }
+
+    private void saveThemeSnapshot(android.content.SharedPreferences prefs) {
+        if(prefs.getBoolean("snapshot_valid",false)) return;
+        android.content.SharedPreferences.Editor edit=prefs.edit();
+        edit.putBoolean("snapshot_ccOn",Store.flag("ccOn",false));
+        String[] keys={"base","surface","surface2","line","tx","mut","ac","er","b0","b1","b2","b3","bubU","bubA","top","nav","glass"};
+        for(String k:keys) {
+            String value=Store.get("cc_"+k,null);
+            edit.putString("snapshot_cc_"+k,value==null?"__NULL__":value);
+        }
+        edit.putBoolean("snapshot_valid",true).apply();
+    }
+
+    private void resetTheme(android.content.SharedPreferences prefs) {
+        if(!prefs.getBoolean("snapshot_valid",false)) { Store.clearCc(); return; }
         Store.clearCc();
+        String[] keys={"base","surface","surface2","line","tx","mut","ac","er","b0","b1","b2","b3","bubU","bubA","top","nav","glass"};
+        for(String k:keys) {
+            String value=prefs.getString("snapshot_cc_"+k,"__NULL__");
+            if(!"__NULL__".equals(value)) Store.put("cc_"+k,value);
+        }
+        Store.setFlag("ccOn",prefs.getBoolean("snapshot_ccOn",false));
+        android.content.SharedPreferences.Editor edit=prefs.edit().remove("snapshot_valid").remove("snapshot_ccOn");
+        for(String k:keys) edit.remove("snapshot_cc_"+k);
+        edit.apply();
     }
 
     private static JSONObject readJson(File f) throws Exception {
