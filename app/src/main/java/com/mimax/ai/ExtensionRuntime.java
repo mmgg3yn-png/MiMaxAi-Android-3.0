@@ -90,6 +90,10 @@ final class ExtensionRuntime {
         String handler = action == null
                 ? manifest.optString("_file_action_handler", "")
                 : action.optString("handler", "");
+        if ("javascript".equals(handler)) {
+            runJavaScript(activity, extensionId, selectedFile);
+            return;
+        }
         runHandler(activity, handler, selectedFile);
     }
 
