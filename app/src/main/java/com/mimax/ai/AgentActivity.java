@@ -219,9 +219,12 @@ public class AgentActivity extends Activity {
         OutputStream raw = getContentResolver().openOutputStream(uri);
         ZipOutputStream zip = new ZipOutputStream(raw);
         ArrayList<File> files = new ArrayList<>();
-        collect(workspace, files);
+        collectAll(workspace, files, 2000);
         byte[] buffer = new byte[8192];
+        long total = 0;
         for (File f : files) {
+            total += f.length();
+            if (total > 100L * 1024 * 1024) throw new Exception("مساحة العمل أكبر من حد التصدير (100MB).");
             String rel = workspace.toURI().relativize(f.toURI()).getPath();
             zip.putNextEntry(new ZipEntry(rel));
             FileInputStream in = new FileInputStream(f);
@@ -232,6 +235,17 @@ public class AgentActivity extends Activity {
         zip.finish();
         zip.close();
         toast("تم تصدير ملفات مساحة العمل");
+    }
+
+    private void collectAll(File dir, ArrayList<File> out, int limit) {
+        if (out.size() >= limit) return;
+        File[] list = dir.listFiles();
+        if (list == null) return;
+        for (File f : list) {
+            if (out.size() >= limit) return;
+            if (f.isDirectory()) collectAll(f, out, limit);
+            else out.add(f);
+        }
     }
 
     private String snapshot() {
