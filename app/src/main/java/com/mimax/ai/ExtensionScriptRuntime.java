@@ -29,6 +29,8 @@ public final class ExtensionScriptRuntime {
         try {
             cx.setOptimizationLevel(-1);
             cx.setLanguageVersion(Context.VERSION_ES6);
+            cx.setInstructionObserverThreshold(100000);
+            cx.setGenerateObserverCount(true);
             cx.setClassShutter(new ClassShutter() {
                 @Override public boolean visibleToScripts(String className) { return false; }
             });
