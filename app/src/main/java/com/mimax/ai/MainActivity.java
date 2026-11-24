@@ -1576,6 +1576,7 @@ public class MainActivity extends Activity {
         selNav(4);
         header("الإعدادات", false, false);
         LinearLayout p = page();
+        p.addView(row("LANG", "لغة التطبيق", "العربية / English", v -> startActivity(new Intent(MainActivity.this, LanguagePackActivity.class))));
         p.addView(row("USR", "الملف الشخصي", Store.profileName().isEmpty() ? "اسم محلي اختياري" : Store.profileName(), v -> openSub("profile")));
         p.addView(row("API", "الذكاء الاصطناعي", Store.hasCustomKey() ? "تستخدم مفتاحك الخاص" : "يعمل بالمفتاح المدمج", v -> openSub("ai")));
         p.addView(row("MDL", "النماذج المجانية", Store.model().isEmpty() ? "اختيار تلقائي" : Store.model(), v -> openSub("models")));
