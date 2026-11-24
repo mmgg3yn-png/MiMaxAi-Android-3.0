@@ -3,6 +3,8 @@ name: Mi_Max Ai 3.0 Android Build
 on:
   push:
     branches: [ main, development, 'feature/**' ]
+  pull_request:
+    branches: [ main ]
   workflow_dispatch:
 
 permissions:
