@@ -158,6 +158,12 @@ public class ExtensionManagerActivity extends Activity {
         String runtime = manifest.optString("runtime", "declarative");
         if (!"declarative".equals(runtime))
             throw new Exception("نوع الإضافة غير مدعوم. استخدم صيغة الإضافات التفاعلية declarative.");
+        org.json.JSONArray dependencies = manifest.optJSONArray("dependencies");
+        if (dependencies != null) for (int i = 0; i < dependencies.length(); i++) {
+            String dependency = dependencies.optString(i, "");
+            if (!dependency.isEmpty() && !new File(root, dependency).isDirectory())
+                throw new Exception("اعتمادية ناقصة: " + dependency);
+        }
         int minVersion = manifest.optInt("min_app_version", 30);
         int maxSdk = manifest.optInt("max_android_sdk", 1000);
         if (minVersion > 30) throw new Exception("هذه الإضافة تتطلب إصدار تطبيق أحدث.");
@@ -231,6 +237,11 @@ public class ExtensionManagerActivity extends Activity {
                 action.setEnabled(enabled);
                 card.addView(action);
                 action.setOnClickListener(v -> ExtensionRuntime.run(this, m, null));
+                Button rollback = new Button(this);
+                rollback.setText("استعادة الإصدار السابق");
+                rollback.setAllCaps(false);
+                card.addView(rollback);
+                rollback.setOnClickListener(v -> restoreBackup(extensionId, dir));
                 Button permissions = new Button(this);
                 permissions.setText("الصلاحيات وسجل الأخطاء");
                 permissions.setAllCaps(false);
@@ -255,6 +266,22 @@ public class ExtensionManagerActivity extends Activity {
                 list.addView(bad);
             }
         }
+    }
+
+    private void restoreBackup(String id, File target) {
+        File backups = new File(getFilesDir(), "extension_backups/" + id);
+        File[] versions = backups.listFiles();
+        File latest = null;
+        if (versions != null) for (File candidate : versions)
+            if (candidate.isDirectory() && (latest == null || candidate.lastModified() > latest.lastModified())) latest = candidate;
+        if (latest == null) { toast("لا توجد نسخة سابقة."); return; }
+        File current = new File(getCacheDir(), "extension-current-" + id);
+        if (target.exists() && !target.renameTo(current)) { toast("تعذر حفظ الإصدار الحالي."); return; }
+        if (!latest.renameTo(target)) { if (current.exists()) current.renameTo(target); toast("فشلت الاستعادة؛ تم الاحتفاظ بالإصدار الحالي."); return; }
+        ExtensionState.setEnabled(this, id, true);
+        ExtensionState.appendLog(this, id, "تمت استعادة نسخة سابقة.");
+        toast("تمت استعادة النسخة السابقة.");
+        render();
     }
 
     private void showPermissionsAndLogs(String id, JSONObject manifest) {
