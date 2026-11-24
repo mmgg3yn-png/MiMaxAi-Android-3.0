@@ -28,6 +28,7 @@
         <activity android:name=".ExtensionRecoveryActivity" android:exported="false" />
         <activity android:name=".ExtensionDeveloperActivity" android:exported="false" />
         <activity android:name=".ExtensionStoreActivity" android:exported="false" />
+        <activity android:name=".LanguagePackActivity" android:exported="false" />
         <activity android:name=".CapabilityActivity" android:exported="false" />
         <activity android:name=".BackupActivity" android:exported="false" />
         <activity android:name=".RemotePcActivity" android:exported="false" />
