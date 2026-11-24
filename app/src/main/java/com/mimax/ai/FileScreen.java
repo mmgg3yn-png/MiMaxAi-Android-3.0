@@ -274,6 +274,10 @@ class FileScreen {
         List<String> L = new ArrayList<>();
         final List<ZipScreen.Act> A = new ArrayList<>();
         L.add("فتح"); A.add(() -> open(f));
+        if (f.isFile() && f.getName().toLowerCase(Locale.US).endsWith("logo.bin")) {
+            L.add("فك logo.bin واستخراج الصور");
+            A.add(() -> a.startActivity(new Intent(a, LogoBinExtractorActivity.class)));
+        }
         if (f.isFile()) { L.add("فتح كنص"); A.add(() -> openText(f)); L.add("فتح كصورة ROM"); A.add(() -> img.open(f)); }
         if (f.isFile() && ApkInstaller.isInstallable(f.getName())) { L.add("تثبيت التطبيق"); A.add(() -> a.installer.install(f)); }
         L.add("نسخ"); A.add(() -> { clip = f; clipCut = false; a.toast("تم النسخ — افتح المجلد الوجهة واضغط «لصق»"); renderDir(cur); });
