@@ -67,6 +67,12 @@ final class ExtensionRuntime {
     }
 
     static void run(Activity activity, JSONObject manifest, File selectedFile) {
+        String extensionId = manifest.optString("id", "");
+        if (!extensionId.isEmpty() && !ExtensionState.enabled(activity, extensionId)) {
+            Toast.makeText(activity, "هذه الإضافة معطلة. افتح وضع الصيانة لإعادة تفعيلها.", Toast.LENGTH_LONG).show();
+            return;
+        }
+        if (!extensionId.isEmpty()) ExtensionState.begin(activity, extensionId);
         JSONObject action = manifest.optJSONObject("action");
         String handler = action == null
                 ? manifest.optString("_file_action_handler", "")
@@ -102,9 +108,11 @@ final class ExtensionRuntime {
                     activity.startActivity(new Intent(activity, RemotePcActivity.class));
                     return;
                 default:
+                    ExtensionState.clearActive(activity);
                     Toast.makeText(activity, "هذا الإجراء غير مدعوم في إصدار محرك الإضافات الحالي.", Toast.LENGTH_LONG).show();
             }
         } catch (Exception e) {
+            ExtensionState.clearActive(activity);
             Toast.makeText(activity, "تعذر تشغيل الإضافة: " + e.getMessage(), Toast.LENGTH_LONG).show();
         }
     }
