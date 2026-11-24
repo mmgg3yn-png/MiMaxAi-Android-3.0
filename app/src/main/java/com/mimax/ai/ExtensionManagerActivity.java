@@ -82,6 +82,12 @@ public class ExtensionManagerActivity extends Activity {
         back.setOnClickListener(v -> finish());
         setContentView(page);
         render();
+        String downloaded = getIntent().getStringExtra("store_file_path");
+        if (downloaded != null && !downloaded.isEmpty()) {
+            getIntent().removeExtra("store_file_path");
+            try { install(Uri.fromFile(new File(downloaded))); render(); }
+            catch (Exception e) { toast("رفضت الإضافة: " + e.getMessage()); }
+        }
     }
 
     private void pick() {
