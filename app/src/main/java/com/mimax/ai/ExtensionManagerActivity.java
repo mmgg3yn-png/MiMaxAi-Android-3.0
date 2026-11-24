@@ -95,6 +95,14 @@ public class ExtensionManagerActivity extends Activity {
         }
     }
 
+    @Override protected void onResume() {
+        super.onResume();
+        if (!isFinishing() && !ExtensionState.recoveryId(this).isEmpty()) {
+            startActivity(new Intent(this, ExtensionRecoveryActivity.class));
+            finish();
+        }
+    }
+
     private void pick() {
         Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         i.setType("*/*");
