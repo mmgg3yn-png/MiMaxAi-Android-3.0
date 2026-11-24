@@ -180,6 +180,12 @@ public class MainActivity extends Activity {
         setTheme(dark ? android.R.style.Theme_DeviceDefault_NoActionBar
                 : android.R.style.Theme_DeviceDefault_Light_NoActionBar);
         super.onCreate(b);
+        String failedExtension = ExtensionState.recoveryId(this);
+        if (!failedExtension.isEmpty()) {
+            startActivity(new Intent(this, ExtensionRecoveryActivity.class));
+            finish();
+            return;
+        }
         colors();
         reload();
         media = new MediaUi(this);
