@@ -58,7 +58,6 @@ build_abi() {
   export CFLAGS="-O2 -fPIE -D_FILE_OFFSET_BITS=64 -D__ANDROID__ -fno-strict-aliasing"
   export LDFLAGS="-pie -static-libstdc++ -llog"
 
-  patch_makefile
   (cd "$WORK" && bash ./make.sh)
 
   for tool in lpunpack lpmake lpdump lpadd lpflash; do
@@ -69,6 +68,8 @@ build_abi() {
 }
 
 rm -rf "$ROOT/app/src/main/assets/lp-tools"
+export TARGET_ARCH="arm"
+patch_makefile
 build_abi "armeabi-v7a" "armv7a-linux-androideabi" "arm"
 build_abi "arm64-v8a" "aarch64-linux-android" "aarch64"
 echo "AOSP logical-partition tools staged for armeabi-v7a and arm64-v8a."
