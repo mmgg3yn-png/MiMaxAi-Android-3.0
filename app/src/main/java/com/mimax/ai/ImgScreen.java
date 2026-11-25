@@ -10,6 +10,7 @@ import com.mimax.ai.engine.Ext4Edit;
 import com.mimax.ai.engine.Io;
 import com.mimax.ai.engine.Lp;
 import com.mimax.ai.engine.LpTools;
+import com.mimax.ai.engine.LogoBin;
 import com.mimax.ai.engine.Sparse;
 import com.mimax.ai.engine.Vsrc;
 
@@ -68,6 +69,7 @@ class ImgScreen {
     static String tag(String k) {
         switch (k) {
             case "super": return "SUPER";
+            case "logo": return "LOGO";
             case "ext4": return "EXT4";
             case "erofs": return "EROFS";
             case "f2fs": return "F2FS";
@@ -91,10 +93,29 @@ class ImgScreen {
 
         boolean broken = info.kind.equals("sparse") && !ok();
         if (info.sparse && !broken) p.addView(a.btn("تحويل Sparse → Raw", a.SF2, a.TX, v -> toRaw()));
-        if (!info.sparse) p.addView(a.btn("تحويل Raw → Sparse", a.SF2, a.TX, v -> toSparse()));
+        if (!info.sparse && !info.kind.equals("logo")) p.addView(a.btn("تحويل Raw → Sparse", a.SF2, a.TX, v -> toSparse()));
+        if (info.kind.equals("logo") && ok()) logoSection(p);
         if (info.kind.equals("super") && ok()) superSection(p);
         if (info.kind.equals("ext4") && ok()) ext4Section(p);
         a.setPage(p);
+    }
+
+    // ---------------- MediaTek logo.bin ----------------
+    void logoSection(LinearLayout p) {
+        final File dir = sibling("_logo");
+        final File rebuilt = unique(sibling("_new.logo.bin"));
+        p.addView(a.note("محرك MTK يفحص جدول الصور ويحتفظ بملف raw.z لكل صورة لضمان إمكانية إعادة التجميع حتى عندما لا يمكن إنشاء معاينة PNG. يمكن تعديل صور PNG المدعومة ثم إعادة البناء."));
+        p.addView(a.btn("فك جميع الصور وعرضها", a.AC, a.ON, v -> {
+            final Io.Cancel c = new Io.Cancel();
+            a.runBgP("فك logo.bin", c, progress -> LogoBin.extract(img, dir, "bgrale", c, progress),
+                    () -> a.showError("اكتمل فك logo.bin.\nالمجلد: " + dir.getPath() + "\nتُحفظ ملفات raw.z الأصلية بجانب معاينات PNG."));
+        }));
+        p.addView(a.btn("إعادة تجميع من مجلد الفك", a.SF2, a.TX, v -> {
+            if (!LogoBin.isProject(dir)) { a.toast("فك الملف أولاً؛ مجلد المشروع غير موجود."); return; }
+            a.confirm("سيُنشأ ملف جديد دون المساس بالأصل:\n" + rebuilt.getPath() + "\nسيُستخدم PNG المعدّل عند وجوده، وإلا raw.z الأصلي.", () ->
+                    a.runBg("إعادة تجميع logo.bin…", null, () -> LogoBin.repack(dir, rebuilt),
+                            () -> a.showError("تمت إعادة التجميع والتحقق من الترويسة وجدول الصور:\n" + rebuilt.getPath() + "\nالحجم: " + Io.human(rebuilt.length()))));
+        }));
     }
 
     // ---------------- Sparse ⇄ Raw ----------------
