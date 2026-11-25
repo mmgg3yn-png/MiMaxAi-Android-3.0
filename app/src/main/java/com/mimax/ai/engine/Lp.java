@@ -173,7 +173,7 @@ public final class Lp {
     /** AOSP ReadMetadata applies slot suffixes before lpunpack names output files. */
     public static String unpackPartitionName(Part part, int slot) {
         if ((part.attrs & 2) == 0) return part.name;
-        if (slot < 0 || slot > 25) throw new IllegalArgumentException("Unsupported LP slot " + slot);
+        if (slot != 0 && slot != 1) throw new IllegalArgumentException("AOSP supports slot suffixes only for slot 0 or 1");
         return part.name + "_" + (char) ('a' + slot);
     }
 
