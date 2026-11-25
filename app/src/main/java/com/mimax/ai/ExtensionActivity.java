@@ -69,7 +69,8 @@ public class ExtensionActivity extends Activity {
         sc.addView(list); root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
         root.addView(button("تحديث القائمة",this::refresh));
         root.addView(button("العودة",this::finish));
-        setContentView(root); refresh();
+        setContentView(root);
+        AppPalette.apply(this, root); refresh();
     }
 
     private void pickPackage(){
