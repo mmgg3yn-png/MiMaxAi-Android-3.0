@@ -12,7 +12,6 @@ import android.graphics.drawable.GradientDrawable;
 import android.os.Handler;
 import android.os.Looper;
 import android.widget.FrameLayout;
-import android.widget.ScrollView;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -215,6 +214,48 @@ public class BrowserActivity extends Activity {
         new AlertDialog.Builder(this).setTitle(title).setItems(rows,(d,w)->web.loadUrl(rows[w]))
             .setNeutralButton("مسح", (d,w)->{p.edit().remove(key).apply();toast("تم المسح");}).show();
     }
+    private void createSiteShortcut(){
+        String url=web.getUrl();if(url==null)return;
+        EditText name=new EditText(this);name.setSingleLine(true);name.setHint("اسم الاختصار");
+        String pageTitle=web.getTitle();name.setText(pageTitle==null||pageTitle.trim().isEmpty()?url:pageTitle);
+        new AlertDialog.Builder(this).setTitle("اختصار الموقع").setMessage(url).setView(name)
+            .setNegativeButton("إلغاء",null).setPositiveButton("حفظ وتثبيت",(d,w)->{
+                String label=name.getText().toString().trim();if(label.isEmpty()){toast("اكتب اسم الاختصار");return;}
+                android.content.SharedPreferences p=getSharedPreferences(PREF,0);
+                JSONArray a;try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
+                try{org.json.JSONObject o=new org.json.JSONObject();o.put("name",label);o.put("url",url);a.put(o);p.edit().putString("site_shortcuts",a.toString()).apply();}catch(Exception ignored){}
+                if(Build.VERSION.SDK_INT>=26){
+                    ShortcutManager sm=getSystemService(ShortcutManager.class);
+                    if(sm!=null&&sm.isRequestPinShortcutSupported()){
+                        Intent launch=new Intent(this,BrowserActivity.class);launch.putExtra("open_url",url);
+                        ShortcutInfo si=new ShortcutInfo.Builder(this,"site_"+Integer.toHexString(url.hashCode()))
+                            .setShortLabel(label.length()>25?label.substring(0,25):label).setLongLabel(label)
+                            .setIcon(Icon.createWithResource(this,android.R.drawable.ic_menu_view)).setIntent(launch).build();
+                        sm.requestPinShortcut(si,null);
+                    }
+                }
+                toast("تم حفظ الاختصار في قائمة المتصفح، وطلب تثبيته على الشاشة الرئيسية.");
+            }).show();
+    }
+    private void showSiteShortcuts(){
+        android.content.SharedPreferences p=getSharedPreferences(PREF,0);JSONArray a;
+        try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
+        ArrayList<String> labels=new ArrayList<>();ArrayList<String> urls=new ArrayList<>();
+        for(int i=0;i<a.length();i++){org.json.JSONObject o=a.optJSONObject(i);if(o!=null){labels.add(o.optString("name"));urls.add(o.optString("url"));}}
+        if(labels.isEmpty()){toast("لا توجد اختصارات محفوظة");return;}
+        new AlertDialog.Builder(this).setTitle("اختصارات المواقع").setItems(labels.toArray(new String[0]),(d,w)->web.loadUrl(urls.get(w)))
+            .setNeutralButton("إدارة", (d,w)->manageSiteShortcuts()).show();
+    }
+    private void manageSiteShortcuts(){
+        android.content.SharedPreferences p=getSharedPreferences(PREF,0);JSONArray a;
+        try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
+        ArrayList<String> labels=new ArrayList<>();for(int i=0;i<a.length();i++){org.json.JSONObject o=a.optJSONObject(i);if(o!=null)labels.add(o.optString("name"));}
+        if(labels.isEmpty()){toast("لا توجد اختصارات");return;}
+        new AlertDialog.Builder(this).setTitle("حذف اختصار").setItems(labels.toArray(new String[0]),(d,w)->{
+            a.remove(w);p.edit().putString("site_shortcuts",a.toString()).apply();toast("تم حذف الاختصار من القائمة المحفوظة");
+        }).setNegativeButton("إغلاق",null).show();
+    }
+
     private void showDownloads(){
         final DownloadManager dm=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
         LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setPadding(dp(10),dp(8),dp(10),dp(8));panel.setBackgroundColor(surfaceColor);
