@@ -56,7 +56,13 @@ public final class Detect {
             byte[] head = s.readUpTo(0, 12288);
             ByteBuffer b = ByteBuffer.wrap(head).order(java.nio.ByteOrder.LITTLE_ENDIAN), be = ByteBuffer.wrap(head);
             try {
-                if (head.length >= 4100 && b.getInt(4096) == Lp.GEO_MAGIC) {
+                if (head.length >= LogoBin.HEADER_SIZE && be.getInt(0) == LogoBin.MAGIC) {
+                    kind(i, "logo", "MediaTek logo.bin");
+                    LogoBin.Info li = LogoBin.inspect(f);
+                    i.evidence.add("توقيع MTK 0x88168858 وترويسة LOGO صحيحة");
+                    i.evidence.add("عدد الصور: " + li.count + " — حجم كتلة البيانات: " + Io.human(li.blockSize));
+                    i.status = VALID;
+                } else if (head.length >= 4100 && b.getInt(4096) == Lp.GEO_MAGIC) {
                     kind(i, "super", "Super (Android Logical Partitions)");
                     i.evidence.add("توقيع LP Geometry (gDla) عند الإزاحة 4096");
                     Lp.Meta m = Lp.read(s);
