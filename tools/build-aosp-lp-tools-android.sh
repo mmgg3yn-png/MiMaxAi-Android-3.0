@@ -38,6 +38,7 @@ replacements = {
     'if [ -z "$OS"];then': 'if [ -z "$OS" ]; then',
     "$HOSTTYPE": "$TARGET_ARCH",
     "-lpthread ${LDFLAGS}": "-pthread ${LDFLAGS}",
+    "-std=c++17": "-std=c++17 -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION -D__ANDROID_SDK_VERSION__=29",
 }
 for old, new in replacements.items():
     if old not in s:
@@ -57,8 +58,8 @@ build_abi() {
   export AR="$TOOLCHAIN/llvm-ar"
   export STRIP="$TOOLCHAIN/llvm-strip"
   export TARGET_ARCH="$arch"
-  export CFLAGS="-O2 -fPIE -D_FILE_OFFSET_BITS=64 -fno-strict-aliasing"
-  export LDFLAGS="-pie -static-libstdc++ -llog"
+  export CFLAGS="-O2 -fPIE -D_FILE_OFFSET_BITS=64 -fno-strict-aliasing -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION -D__ANDROID_SDK_VERSION__=29"
+  export LDFLAGS="-pie -llog -ldl"
 
   (cd "$WORK" && bash ./make.sh)
 
