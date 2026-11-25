@@ -72,7 +72,7 @@ public final class AiPanel {
    protected java.util.List<String> doInBackground()throws Exception{
     HttpURLConnection c=(HttpURLConnection)new URL("https://openrouter.ai/api/v1/models").openConnection();c.setConnectTimeout(15000);c.setReadTimeout(30000);
     String data=read(c.getInputStream());c.disconnect();java.util.List<String> ids=new ArrayList<>();
-    Matcher m=Pattern.compile("\\"id\\"\\s*:\\s*\\"([^\\"]+)\\"").matcher(data);while(m.find()&&ids.size()<500)ids.add(m.group(1));return ids;
+    Matcher m=Pattern.compile("\"id\"\\s*:\\s*\"([^\"]+)\"").matcher(data);while(m.find()&&ids.size()<500)ids.add(m.group(1));return ids;
    }
    protected void done(){try{String current=String.valueOf(model.getSelectedItem());java.util.List<String> ids=get();model.removeAllItems();for(String id:ids)model.addItem(id);model.setSelectedItem(ids.contains(current)?current:"openrouter/auto");status.setText("تم تحميل "+ids.size()+" نموذجاً");}catch(Exception e){status.setText("تعذر تحميل النماذج: "+e.getMessage());}}
   }.execute();
@@ -92,7 +92,7 @@ public final class AiPanel {
     c.setRequestProperty("Authorization","Bearer "+k);c.setRequestProperty("Content-Type","application/json");c.setRequestProperty("X-Title","Mi_Max Ai");
     try(OutputStream o=c.getOutputStream()){o.write(body.getBytes(StandardCharsets.UTF_8));}
     int code=c.getResponseCode();String data=read(code>=400?c.getErrorStream():c.getInputStream());c.disconnect();if(code>=400)throw new Exception("HTTP "+code+": "+data);
-    Matcher x=Pattern.compile("\\"content\\"\\s*:\\s*\\"((?:\\\\.|[^\\"])*)\\"").matcher(data);if(!x.find())throw new Exception("لم يتم العثور على نص الرد: "+data);return unesc(x.group(1));
+    Matcher x=Pattern.compile("\"content\"\\s*:\\s*\"((?:\\\\.|[^\"])*)\"").matcher(data);if(!x.find())throw new Exception("لم يتم العثور على نص الرد: "+data);return unesc(x.group(1));
    }
    protected void done(){try{String answer=get();history.append(answer+"\n");messages.add("{\"role\":\"assistant\",\"content\":\""+esc(answer)+"\"}");status.setText("اكتمل الرد");}
     catch(Exception e){messages.remove(messages.size()-1);history.append("تعذر الاتصال: "+e.getMessage()+"\n");status.setText("فشل الطلب");}
