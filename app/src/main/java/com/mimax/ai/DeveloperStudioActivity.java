@@ -44,7 +44,9 @@ public class DeveloperStudioActivity extends Activity {
     private EditText hostField, tokenField, editor;
     private TextView status;
     private File currentProject;
+    private File currentEditingFile;
     private boolean currentHtml;
+    private static final int IMPORT_PROJECT_FILE = 931;
 
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_LONG).show(); }
@@ -80,18 +82,7 @@ public class DeveloperStudioActivity extends Activity {
 
     private void showHome() {
         LinearLayout root = root("Mi_Max Ai • Developer Studio");
-        root.addView(label("مساحة مشاريع HTML وPython. محرر محلي، معاينة HTML، وبناء APK عبر PC Bridge.", 13, 0xFF536273));
-        hostField = new EditText(this);
-        hostField.setSingleLine(true);
-        hostField.setText(Store.get("dev_pc_host", ""));
-        hostField.setHint("PC Bridge: http://192.168.1.x:8765");
-        root.addView(hostField, new LinearLayout.LayoutParams(-1, dp(46)));
-        tokenField = new EditText(this);
-        tokenField.setSingleLine(true);
-        tokenField.setText(Store.get("dev_pc_token", ""));
-        tokenField.setHint("رمز PC Bridge");
-        root.addView(tokenField, new LinearLayout.LayoutParams(-1, dp(46)));
-        root.addView(button("حفظ اتصال الكمبيوتر", () -> saveConnection()));
+        root.addView(label("قوالب مشاريع محلية على الهاتف. HTML يدعم المعاينة دون إنترنت. Python يحفظ ملفات المشروع ومتطلباته.", 13, 0xFF536273));
         LinearLayout actions = new LinearLayout(this);
         actions.addView(button("مشروع HTML جديد", () -> createProject(true)), new LinearLayout.LayoutParams(0, -2, 1));
         actions.addView(button("مشروع Python جديد", () -> createProject(false)), new LinearLayout.LayoutParams(0, -2, 1));
@@ -119,7 +110,7 @@ public class DeveloperStudioActivity extends Activity {
         }
         if (found == 0) list.addView(label("لا توجد مشاريع بعد. أنشئ مشروع HTML أو Python.", 13, 0xFF64748B));
         scroll.addView(list); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        status = label("HTML APK: Gradle على الكمبيوتر. Python APK: Buildozer على Linux.", 12, 0xFF536273);
+        status = label("المشاريع والمعاينة محلية. محرك بناء APK دون اتصال غير مضمّن بعد؛ لن نعرض بناءً وهمياً.", 12, 0xFF536273);
         root.addView(status);
         root.addView(button("العودة", this::finish));
         setContentView(root);
@@ -145,8 +136,13 @@ public class DeveloperStudioActivity extends Activity {
                 if (dir.exists()) { toast("يوجد مشروع بهذا الاسم"); return; }
                 if (!dir.mkdirs()) { toast("تعذر إنشاء المشروع"); return; }
                 try {
-                    if (html) write(new File(dir, "main.html"), defaultHtml());
-                    else write(new File(dir, "main.py"), defaultPython());
+                    if (html) {
+                        new File(dir, "assets").mkdirs();
+                        write(new File(dir, "main.html"), defaultHtml());
+                    } else {
+                        write(new File(dir, "main.py"), defaultPython());
+                        write(new File(dir, "requirements.txt"), "# ضع أسماء المكتبات هنا، مكتبة في كل سطر. مثال: requests\\n");
+                    }
                     openProject(dir, html);
                 } catch (Exception e) { toast("فشل إنشاء المشروع: " + e.getMessage()); }
             }).show();
@@ -163,6 +159,7 @@ public class DeveloperStudioActivity extends Activity {
     private void openProject(File dir, boolean html) {
         currentProject = dir; currentHtml = html;
         File source = new File(dir, html ? "main.html" : "main.py");
+        currentEditingFile = source;
         try {
             String text = read(source);
             LinearLayout root = root((html ? "HTML Studio" : "Python Studio") + " • " + dir.getName());
@@ -183,8 +180,10 @@ public class DeveloperStudioActivity extends Activity {
             ScrollView scroll = new ScrollView(this); scroll.addView(editor);
             root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
             root.addView(button("حفظ الملف", this::saveSource));
-            if (html) root.addView(button("معاينة HTML", this::previewHtml));
-            root.addView(button("تحويل المشروع إلى APK", this::buildCurrentApk));
+            root.addView(button("ملفات المشروع / إضافة ملف", this::showProjectFiles));
+            if (!html) root.addView(button("تعديل requirements.txt", this::editRequirements));
+            if (html) root.addView(button("معاينة HTML دون إنترنت", this::previewHtml));
+            root.addView(button("حالة بناء APK", this::showOfflineBuildStatus));
             root.addView(button("العودة للمشاريع", this::showHome));
             setContentView(root);
         AppPalette.apply(this, root);
@@ -192,7 +191,7 @@ public class DeveloperStudioActivity extends Activity {
     }
 
     private void saveSource() {
-        try { write(new File(currentProject, currentHtml ? "main.html" : "main.py"), editor.getText().toString()); toast("تم حفظ المشروع"); }
+        try { if (currentEditingFile == null) currentEditingFile = new File(currentProject, currentHtml ? "main.html" : "main.py"); write(currentEditingFile, editor.getText().toString()); toast("تم حفظ: " + currentEditingFile.getName()); }
         catch (Exception e) { toast("فشل الحفظ: " + e.getMessage()); }
     }
 
@@ -204,8 +203,9 @@ public class DeveloperStudioActivity extends Activity {
         settings.setDomStorageEnabled(true);
         web.setWebViewClient(new WebViewClient());
         web.setWebChromeClient(new WebChromeClient());
-        String base = Uri.fromFile(new File(currentProject, "main.html")).toString();
-        web.loadDataWithBaseURL(base, editor.getText().toString(), "text/html", "UTF-8", null);
+        web.getSettings().setAllowFileAccess(true);
+        web.getSettings().setAllowContentAccess(true);
+        web.loadUrl(Uri.fromFile(new File(currentProject, "main.html")).toString());
         LinearLayout root = root("معاينة HTML • " + currentProject.getName());
         root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1));
         root.addView(button("العودة للمحرر", () -> openProject(currentProject, true)));
@@ -213,8 +213,52 @@ public class DeveloperStudioActivity extends Activity {
         AppPalette.apply(this, root);
     }
 
+    private void showOfflineBuildStatus() {
+        new AlertDialog.Builder(this).setTitle("بناء APK دون إنترنت")
+            .setMessage("قوالب HTML وPython والمحرر والمعاينة تعمل محلياً. لكن هذا الإصدار لا يحتوي بعد على Android SDK/Build Tools وPython-for-Android مضمّنة. لذلك لن أبدأ بناءً يعتمد على كمبيوتر أو أعرض نجاحاً وهمياً. يلزم دمج محرك بناء محلي متوافق مع معمارية الهاتف واختباره قبل تفعيل الزر.")
+            .setPositiveButton("حسناً", null).show();
+    }
+
+    private void showProjectFiles() {
+        if (currentProject == null) return;
+        LinearLayout box = new LinearLayout(this); box.setOrientation(LinearLayout.VERTICAL);
+        ScrollView sc = new ScrollView(this);
+        LinearLayout list = new LinearLayout(this); list.setOrientation(LinearLayout.VERTICAL);
+        ArrayList<File> files = new ArrayList<>(); collect(currentProject, files);
+        for (File f : files) {
+            String rel = currentProject.toURI().relativize(f.toURI()).getPath();
+            list.addView(button(rel, () -> openProjectFile(f)));
+        }
+        sc.addView(list); box.addView(sc, new LinearLayout.LayoutParams(-1, dp(280)));
+        box.addView(button("استيراد ملف من الهاتف", () -> {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE); pick.setType("*/*");
+            startActivityForResult(pick, IMPORT_PROJECT_FILE);
+        }));
+        new AlertDialog.Builder(this).setTitle("ملفات المشروع").setView(box).setNegativeButton("إغلاق", null).show();
+    }
+
+    private void openProjectFile(File file) {
+        try {
+            currentEditingFile = file;
+            editor.setText(read(file));
+            toast("تم فتح " + file.getName());
+        } catch (Exception e) { toast("تعذر فتح الملف: " + e.getMessage()); }
+    }
+
+    private void editRequirements() {
+        File req = new File(currentProject, "requirements.txt");
+        try {
+            currentEditingFile = req;
+            editor.setText(req.exists() ? read(req) : "# مكتبة في كل سطر\\n");
+            toast("عدّل المتطلبات ثم اضغط حفظ الملف");
+        } catch (Exception e) { toast("تعذر فتح requirements.txt"); }
+    }
+
     private void buildCurrentApk() {
-        saveSource();
+        showOfflineBuildStatus();
+        return;
+        /* Legacy PC Bridge builder retained below for migration reference only. */
         final String host = Store.get("dev_pc_host", "").trim();
         final String token = Store.get("dev_pc_token", "").trim();
         if (host.isEmpty() || token.isEmpty()) { toast("أدخل عنوان PC Bridge والرمز في صفحة Developer Studio أولاً"); return; }
@@ -365,6 +409,17 @@ public class DeveloperStudioActivity extends Activity {
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
+        if (request == IMPORT_PROJECT_FILE && result == RESULT_OK && data != null && data.getData() != null && currentProject != null) {
+            try (InputStream in = getContentResolver().openInputStream(data.getData())) {
+                String name = "imported_" + System.currentTimeMillis();
+                String display = data.getData().getLastPathSegment();
+                if (display != null && display.matches("[A-Za-z0-9._-]{1,100}")) name = display;
+                File dest = new File(currentProject, name);
+                try (FileOutputStream out = new FileOutputStream(dest)) { byte[] buf = new byte[8192]; int n; while ((n=in.read(buf))!=-1) out.write(buf,0,n); }
+                toast("تم استيراد الملف: " + name);
+                showProjectFiles();
+            } catch (Exception e) { toast("فشل استيراد الملف: " + e.getMessage()); }
+        }
         if (request == SAVE_APK && result == RESULT_OK && data != null && data.getData() != null && pendingApk != null) {
             try (InputStream in = new FileInputStream(pendingApk); OutputStream out = getContentResolver().openOutputStream(data.getData())) {
                 byte[] buffer = new byte[8192]; int n; while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
