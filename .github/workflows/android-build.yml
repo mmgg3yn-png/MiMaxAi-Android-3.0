@@ -1,4 +1,5 @@
 name: Mi_Max Ai 3.0 Android Build
+# Rebuild local HTML/Python APK templates after package and alignment fixes
 
 on:
   push:
