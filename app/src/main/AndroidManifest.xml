@@ -22,6 +22,7 @@
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
+        <activity android:name=".ExtensionScreenActivity" android:exported="false" />
         <activity android:name=".ThemeStudioActivity" android:exported="false" />
         <activity android:name=".DeveloperStudioActivity" android:exported="false" />
         <activity android:name=".ExtensionActivity" android:exported="false" />
