@@ -194,6 +194,56 @@ public final class LpTools {
         return ((value + alignment - 1) / alignment) * alignment;
     }
 
+    /** Verifies an extracted LP image against its source, allowing only zero padding. */
+    public static void verifyPaddedImage(File expected, File actual) throws Exception {
+        if (!expected.isFile() || !actual.isFile() || expected.length() > actual.length()) {
+            throw new IOException("حجم القسم الناتج لا يطابق الملف المدخل: " + expected.getName());
+        }
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream in = new FileInputStream(expected)) {
+            byte[] b = new byte[1024 * 1024];
+            int n;
+            while ((n = in.read(b)) != -1) digest.update(b, 0, n);
+        }
+        StringBuilder expectedHash = new StringBuilder();
+        for (byte b : digest.digest()) expectedHash.append(String.format(Locale.US, "%02x", b & 255));
+        if (!expectedHash.toString().equals(sha256Prefix(actual, expected.length()))) {
+            throw new IOException("فشل التحقق من بيانات القسم: " + expected.getName());
+        }
+        try (FileInputStream in = new FileInputStream(actual)) {
+            long skip = expected.length();
+            while (skip > 0) {
+                long n = in.skip(skip);
+                if (n <= 0) throw new IOException("تعذر قراءة نهاية القسم الناتج");
+                skip -= n;
+            }
+            byte[] b = new byte[64 * 1024];
+            int n;
+            while ((n = in.read(b)) != -1) {
+                for (int i = 0; i < n; i++) if (b[i] != 0) {
+                    throw new IOException("بيانات إضافية غير صفرية بعد نهاية القسم: " + expected.getName());
+                }
+            }
+        }
+    }
+
+    private static String sha256Prefix(File file, long length) throws Exception {
+        MessageDigest digest = MessageDigest.getInstance("SHA-256");
+        try (InputStream in = new FileInputStream(file)) {
+            byte[] b = new byte[1024 * 1024];
+            long left = length;
+            while (left > 0) {
+                int n = in.read(b, 0, (int) Math.min(b.length, left));
+                if (n < 0) throw new IOException("ملف القسم الناتج مبتور: " + file.getName());
+                digest.update(b, 0, n);
+                left -= n;
+            }
+        }
+        StringBuilder out = new StringBuilder();
+        for (byte b : digest.digest()) out.append(String.format(Locale.US, "%02x", b & 255));
+        return out.toString();
+    }
+
     public static String sha256(File file) throws Exception {
         MessageDigest digest = MessageDigest.getInstance("SHA-256");
         try (InputStream in = new FileInputStream(file)) {
