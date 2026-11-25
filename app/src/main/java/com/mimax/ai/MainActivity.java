@@ -210,12 +210,6 @@ public class MainActivity extends Activity {
         }
     }
 
-    @Override
-    protected void onResume() {
-        super.onResume();
-        refreshHomeWidgets();
-    }
-
     private void refreshHomeWidgets() {
         try {
             android.appwidget.AppWidgetManager manager = android.appwidget.AppWidgetManager.getInstance(this);
@@ -585,6 +579,7 @@ public class MainActivity extends Activity {
     @Override
     protected void onResume() {
         super.onResume();
+        refreshHomeWidgets();
         if (extensionThemeChanged) { extensionThemeChanged = false; recreate(); return; }
         if (tab.equals("files") && files != null && files.pendingPermission) {
             files.pendingPermission = false;
