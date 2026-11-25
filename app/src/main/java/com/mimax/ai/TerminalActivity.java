@@ -101,6 +101,7 @@ public class TerminalActivity extends Activity {
         back.setOnClickListener(v -> finish());
         root.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
         setContentView(root);
+        AppPalette.apply(this, root);
     }
 
     private void line(String text, String color) {
