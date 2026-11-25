@@ -178,10 +178,7 @@ class ImgScreen {
 
     FileScreen files() { return a.files; }
 
-    /**
-     * Traditional simg2img -> lpunpack workflow, implemented with the app's
-     * in-process Java readers. The source is never modified.
-     */
+    /** Traditional simg2img -> AOSP lpunpack workflow. The source is never modified. */
     void unpackTraditional() {
         final File dir = partsDir();
         final File parent = img.getAbsoluteFile().getParentFile();
@@ -230,7 +227,6 @@ class ImgScreen {
     }
 
     void showLpDump() {
-        final File parent = img.getAbsoluteFile().getParentFile();
         final File work = new File(a.getCacheDir(), "lp-dump-" + System.currentTimeMillis());
         final File raw = info.sparse ? new File(work, "super.raw.img") : img;
         final Io.Cancel cancel = new Io.Cancel();
@@ -342,7 +338,7 @@ class ImgScreen {
                 if (!work.exists() && !work.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد العمل المؤقت");
                 Io.checkSpace(work, workNeeded);
                 Io.checkSpace(output.getAbsoluteFile().getParentFile(),
-                        alsoSparse ? (64L << 20) : meta.deviceSize);
+                        alsoSparse ? meta.totalSize() : meta.deviceSize);
                 if (info.sparse) Sparse.toRaw(img, sourceRaw, progress, cancel);
 
                 File extractedDir = new File(work, "original_parts");
