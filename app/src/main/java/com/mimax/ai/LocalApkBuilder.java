@@ -108,6 +108,8 @@ public final class LocalApkBuilder {
             config.put("title", title == null ? project.getName() : title);\n            config.put("package", packageName);
             addBytes(output, "assets/app-config.json", config.toString().getBytes(StandardCharsets.UTF_8));
 
+            if (iconFile != null && iconFile.isFile()) addFile(output, "assets/app-icon.png", iconFile);
+
             if (html) {
                 ArrayList<File> files = new ArrayList<>();
                 collect(project, files);
@@ -159,6 +161,7 @@ public final class LocalApkBuilder {
                 .setV1SigningEnabled(true)
                 .setV2SigningEnabled(true)
                 .setV3SigningEnabled(true)
+                .setAlignmentPreserved(false)
                 .build()
                 .sign();
     }
