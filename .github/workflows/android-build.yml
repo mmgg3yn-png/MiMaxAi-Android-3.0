@@ -36,8 +36,6 @@ jobs:
           packages: 'ndk;27.2.12479018'
 
       - name: Build AOSP logical-partition tools for ARM32 and ARM64
-        env:
-          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
         run: bash tools/build-aosp-lp-tools-android.sh
 
       - name: Validate PC Bridge Python
