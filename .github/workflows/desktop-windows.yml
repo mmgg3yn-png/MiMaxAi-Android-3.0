@@ -1,0 +1,101 @@
+name: Mi_Max Ai Desktop (Windows x86 + x64)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ "desktop/windows-x86-x64" ]
+    paths:
+      - "desktop/**"
+      - ".github/workflows/desktop-windows.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    name: Windows ${{ matrix.label }}
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x86
+            label: 32-bit
+            artifact: MiMaxAi-Desktop-Windows-x86
+          - arch: x86_64
+            label: 64-bit
+            artifact: MiMaxAi-Desktop-Windows-x64
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK for compiling
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Compile desktop application (Java 8 bytecode)
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $src = Get-ChildItem "desktop/src/main/java" -Recurse -Filter "*.java" | ForEach-Object { $_.FullName }
+          if ($src.Count -eq 0) { throw "No Java source files found" }
+          New-Item -ItemType Directory -Force "desktop/build/classes" | Out-Null
+          javac --release 8 -encoding UTF-8 -d "desktop/build/classes" $src
+          if ($LASTEXITCODE -ne 0) { throw "javac failed" }
+          jar --create --file "desktop/build/MiMaxAi-Desktop.jar" --main-class com.mimax.ai.desktop.Main -C "desktop/build/classes" .
+          if ($LASTEXITCODE -ne 0) { throw "jar failed" }
+
+      - name: Download matching portable Java 8 runtime
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $api = "https://api.azul.com/metadata/v1/zulu/packages/?java_version=8&os=windows&arch=${{ matrix.arch }}&java_package_type=jre&archive_type=zip&release_status=ga&availability_types=CA&latest=true"
+          $packages = Invoke-RestMethod -Uri $api -Headers @{ "User-Agent" = "MiMaxAi-Desktop-Build" }
+          $pkg = $packages | Select-Object -First 1
+          if (-not $pkg -or -not $pkg.download_url) { throw "No Azul Java 8 runtime found for ${{ matrix.arch }}" }
+          Invoke-WebRequest -Uri $pkg.download_url -OutFile "desktop/build/runtime.zip"
+          Expand-Archive "desktop/build/runtime.zip" -DestinationPath "desktop/build/runtime-unpacked" -Force
+          $javaw = Get-ChildItem "desktop/build/runtime-unpacked" -Recurse -Filter "javaw.exe" | Select-Object -First 1
+          if (-not $javaw) { throw "Downloaded runtime does not contain javaw.exe" }
+          $jreHome = Split-Path (Split-Path $javaw.FullName -Parent) -Parent
+          New-Item -ItemType Directory -Force "desktop/build/package/runtime" | Out-Null
+          Copy-Item "$jreHome\*" "desktop/build/package/runtime" -Recurse -Force
+          if (-not (Test-Path "desktop/build/package/runtime/bin/javaw.exe")) { throw "Runtime packaging failed" }
+
+      - name: Assemble portable Windows application
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          $pkg = "desktop/build/package"
+          Copy-Item "desktop/build/MiMaxAi-Desktop.jar" "$pkg/MiMaxAi-Desktop.jar"
+          @'
+          @echo off
+          set "BASE=%~dp0"
+          "%BASE%runtime\bin\javaw.exe" -jar "%BASE%MiMaxAi-Desktop.jar"
+          '@ | Set-Content "$pkg/Start-MiMaxAi.bat" -Encoding ASCII
+          @'
+          @echo off
+          set "BASE=%~dp0"
+          "%BASE%runtime\bin\java.exe" -jar "%BASE%MiMaxAi-Desktop.jar"
+          pause
+          '@ | Set-Content "$pkg/Start-MiMaxAi-Console.bat" -Encoding ASCII
+          @'
+          Mi_Max Ai Desktop
+          Windows architecture: ${{ matrix.label }}
+
+          Run Start-MiMaxAi.bat.
+          This package includes its matching portable Java runtime.
+          It does not require Android, ADB, or Termux.
+          '@ | Set-Content "$pkg/README.txt" -Encoding UTF8
+          Compress-Archive -Path "$pkg\*" -DestinationPath "desktop/build/${{ matrix.artifact }}.zip" -Force
+
+      - name: Upload Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: desktop/build/${{ matrix.artifact }}.zip
+          if-no-files-found: error
+          retention-days: 30
