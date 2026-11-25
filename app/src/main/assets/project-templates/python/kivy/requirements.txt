@@ -1,1 +1,2 @@
-# Add extra Python packages, one per line. Kivy is added by the Android build workflow.
+# Add packages supported by Pyodide, one per line.
+# Packages are downloaded from PyPI when the generated app starts.
