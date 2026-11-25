@@ -63,10 +63,10 @@ p.write_text(s)
 # nodes; the app passes ordinary image-file paths and uses open() instead.
 util = Path(sys.argv[1]).parent / "lib" / "liblp" / "utility.cpp"
 u = util.read_text()
-old_include = "#ifdef __ANDROID__\\n#include <cutils/android_get_control_file.h>\\n#endif"
-new_include = "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_NO_CONTROL_FD)\\n#include <cutils/android_get_control_file.h>\\n#endif"
-old_call = "#if defined(__ANDROID__)\\n    int fd = android_get_control_file(path.data());"
-new_call = "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_NO_CONTROL_FD)\\n    int fd = android_get_control_file(path.data());"
+old_include = "#ifdef __ANDROID__\n#include <cutils/android_get_control_file.h>\n#endif"
+new_include = "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_NO_CONTROL_FD)\n#include <cutils/android_get_control_file.h>\n#endif"
+old_call = "#if defined(__ANDROID__)\n    int fd = android_get_control_file(path.data());"
+new_call = "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_NO_CONTROL_FD)\n    int fd = android_get_control_file(path.data());"
 if old_include not in u or old_call not in u:
     raise SystemExit("Could not find expected control-fd code in liblp/utility.cpp")
 u = u.replace(old_include, new_include, 1).replace(old_call, new_call, 1)
