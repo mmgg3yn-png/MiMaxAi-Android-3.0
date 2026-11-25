@@ -252,8 +252,9 @@ public class BrowserActivity extends Activity {
         try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
         ArrayList<String> labels=new ArrayList<>();for(int i=0;i<a.length();i++){org.json.JSONObject o=a.optJSONObject(i);if(o!=null)labels.add(o.optString("name"));}
         if(labels.isEmpty()){toast("لا توجد اختصارات");return;}
+        final JSONArray saved = a;
         new AlertDialog.Builder(this).setTitle("حذف اختصار").setItems(labels.toArray(new String[0]),(d,w)->{
-            a.remove(w);p.edit().putString("site_shortcuts",a.toString()).apply();toast("تم حذف الاختصار من القائمة المحفوظة");
+            saved.remove(w);p.edit().putString("site_shortcuts",saved.toString()).apply();toast("تم حذف الاختصار من القائمة المحفوظة");
         }).setNegativeButton("إغلاق",null).show();
     }
 
