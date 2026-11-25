@@ -102,6 +102,7 @@ final class ExtensionRuntime {
             }
             return;
         }
+        // Crash recovery is intentionally scoped to active JavaScript execution only.
         // Declarative handlers only launch trusted app-owned screens. Do not mark them
         // as executing extensions: a later unrelated app crash must not disable them.
         runHandler(activity, handler, selectedFile);
