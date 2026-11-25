@@ -78,7 +78,7 @@ dump = Path(sys.argv[1]).parent / "partition_tools" / "lpdump.cc"
 d = dump.read_text()
 d = d.replace("#ifdef __ANDROID__\n#include <cutils/android_get_control_file.h>\n#include <fs_mgr.h>\n#endif",
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\n#include <cutils/android_get_control_file.h>\n#include <fs_mgr.h>\n#endif", 1)
-d = d.replace("using namespace android::fs_mgr;", "#if !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\nusing namespace android::fs_mgr;\n#endif", 1)
+# Keep the liblp namespace available: its public metadata API is still used for image files.\nif "using namespace android::fs_mgr;" not in d:\n    raise SystemExit("Expected liblp namespace import missing")
 d = d.replace("#ifdef __ANDROID__\nstatic DynamicPartitionsDeviceInfoProto::Partition* FindPartition(",
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\nstatic DynamicPartitionsDeviceInfoProto::Partition* FindPartition(", 1)
 d = d.replace("#ifdef __ANDROID__\n    if (!MergeFsUsage(&proto, cerr)) {",
@@ -89,10 +89,21 @@ d = d.replace("#ifdef __ANDROID__\n        super_path = GetSuperPartitionName(sl
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\n        super_path = GetSuperPartitionName(slot);", 1)
 d = d.replace("#ifdef __ANDROID__\n    uint32_t num_slots = current_slot_suffix.empty() ? 1 : 2;",
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\n    uint32_t num_slots = current_slot_suffix.empty() ? 1 : 2;", 1)
+// This wrapper is unused by the standalone image-file CLI. It depends on
+// device-only PartitionOpener and android_get_control_file APIs unavailable
+// in the public NDK. ReadMetadata() supports ordinary image paths directly.
+d, removed = re.subn(r"class FileOrBlockDeviceOpener final : public PartitionOpener \\{.*?\\n\\};\\n", "", d, count=1, flags=re.S)
+if removed != 1:
+    raise SystemExit("Could not remove unused device-only FileOrBlockDeviceOpener")
+
 d = d.replace("if (!override_super_name) {\n                super_path = GetSuperPartitionName(i);",
               "if (!override_super_name) {\n                super_path = GetSuperPartitionName(i);", 1)
 if d == dump.read_text() or d.count("MIMAX_LP_TOOLS_IMAGE_ONLY") < 6:
     raise SystemExit("Could not apply all expected lpdump image-only guards")
+if "using namespace android::fs_mgr;" not in d:
+    raise SystemExit("lpdump lost the public liblp namespace import")
+if "class FileOrBlockDeviceOpener" in d or "fd.reset(android_get_control_file" in d:
+    raise SystemExit("lpdump image-only build still contains device control-fd integration")
 dump.write_text(d)
 PY
 }
@@ -112,9 +123,18 @@ build_abi() {
 
   (cd "$WORK" && bash ./make.sh)
 
+  case "$abi" in
+    armeabi-v7a) expected_machine="ARM" ;;
+    arm64-v8a) expected_machine="AArch64" ;;
+    *) echo "Unsupported ABI: $abi" >&2; exit 2 ;;
+  esac
   for tool in lpunpack lpmake lpdump; do
     test -s "$WORK/bin/$tool"
+    elf_header="$("$TOOLCHAIN/llvm-readelf" -h "$WORK/bin/$tool")"
+    grep -q "Machine:.*$expected_machine" <<< "$elf_header" || { echo "$tool has wrong ELF architecture for $abi" >&2; exit 1; }
+    grep -q "Type:.*DYN" <<< "$elf_header" || { echo "$tool is not a PIE executable" >&2; exit 1; }
     install -m 0755 "$WORK/bin/$tool" "$out/$tool"
+    test -s "$out/$tool"
   done
   printf '%s\n' "$SOURCE_COMMIT" > "$out/SOURCE_COMMIT"
 }
