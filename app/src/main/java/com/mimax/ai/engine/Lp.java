@@ -56,7 +56,10 @@ public final class Lp {
         return Arrays.equals(stored, sha256(copy));
     }
 
-    public static Meta read(Vsrc s) throws IOException {
+    public static Meta read(Vsrc s) throws IOException { return read(s, 0); }
+
+    /** Reads a specific LP metadata slot. */
+    public static Meta read(Vsrc s, int slot) throws IOException {
         long size = s.size();
         if (size < RESERVED + 2 * GEO_SIZE + 512) throw new Io.Corrupt("الملف أصغر من أن يحتوي بيانات LP Metadata", true);
         ByteBuffer geo = null;
@@ -78,7 +81,9 @@ public final class Lp {
         long maxSize = geo.getInt(40) & 0xFFFFFFFFL;
         int slots = geo.getInt(44), lbs = geo.getInt(48);
         if (maxSize < 512 || maxSize % 512 != 0 || slots < 1 || slots > 16) throw new Io.Corrupt("قيم Geometry غير منطقية (max=" + maxSize + ", slots=" + slots + ")");
-        long primary = RESERVED + 2L * GEO_SIZE, backup = size - maxSize * slots;
+        if (slot < 0 || slot >= slots) throw new Io.Unsupported("رقم Metadata slot خارج النطاق: " + slot);
+        long primary = RESERVED + 2L * GEO_SIZE + (long) slot * maxSize;
+        long backup = size - maxSize * slots + (long) slot * maxSize;
         Meta m = null;
         String primErr = null;
         try { m = readMeta(s, primary, maxSize); } catch (Io.Unsupported e) { throw e; } catch (IOException e) { primErr = e.getMessage(); }
@@ -160,6 +165,36 @@ public final class Lp {
             m.parts.add(p);
         }
         return m;
+    }
+
+    /** True only when two slots describe identical extents and metadata layout. */
+    public static boolean sameLayout(Meta a, Meta b) {
+        if (a == null || b == null || a.major != b.major || a.minor != b.minor
+                || a.slotCount != b.slotCount || a.maxSize != b.maxSize
+                || a.logicalBlockSize != b.logicalBlockSize || a.virtualAb != b.virtualAb
+                || a.parts.size() != b.parts.size() || a.groups.size() != b.groups.size()
+                || a.devices.size() != b.devices.size()) return false;
+        for (int i = 0; i < a.devices.size(); i++) {
+            Device x = a.devices.get(i), y = b.devices.get(i);
+            if (!x.name.equals(y.name) || x.firstLogicalSector != y.firstLogicalSector
+                    || x.size != y.size || x.alignment != y.alignment
+                    || x.alignmentOffset != y.alignmentOffset || x.flags != y.flags) return false;
+        }
+        for (int i = 0; i < a.groups.size(); i++) {
+            Group x = a.groups.get(i), y = b.groups.get(i);
+            if (!x.name.equals(y.name) || x.maxSize != y.maxSize || x.flags != y.flags) return false;
+        }
+        for (int i = 0; i < a.parts.size(); i++) {
+            Part x = a.parts.get(i), y = b.parts.get(i);
+            if (!x.name.equals(y.name) || x.attrs != y.attrs || x.group != y.group
+                    || x.size != y.size || x.segs.size() != y.segs.size()) return false;
+            for (int j = 0; j < x.segs.size(); j++) {
+                Vsrc.Seg sx = x.segs.get(j), sy = y.segs.get(j);
+                if (sx.v != sy.v || sx.len != sy.len || sx.src != sy.src
+                        || sx.zero != sy.zero || sx.fill != sy.fill) return false;
+            }
+        }
+        return true;
     }
 
     public static Vsrc.Ext open(Vsrc dev, Part p) { return new Vsrc.Ext(dev, p.segs, p.size); }
