@@ -100,6 +100,7 @@ public class BrowserActivity extends Activity {
         done.setOnClickListener(v -> finish());
         root.addView(done, new LinearLayout.LayoutParams(-1, dp(42)));
         setContentView(root);
+        AppPalette.apply(this, root);
         if (state == null) web.loadUrl("https://www.google.com");
     }
 
