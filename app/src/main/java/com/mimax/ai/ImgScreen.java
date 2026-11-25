@@ -146,11 +146,27 @@ class ImgScreen {
 
     void partMenu(final Lp.Part pt) {
         if (pt.size == 0) { a.toast("القسم فارغ"); return; }
-        a.gb().setTitle(pt.name).setItems(new String[]{"استخراج هذا القسم", "استخراج وفتحه"}, (d, w) -> {
-            final File out = new File(partsDir(), pt.name + ".img");
+        a.gb().setTitle(pt.name).setItems(new String[]{"استخراج هذا القسم بأداة AOSP lpunpack", "استخراج وفتح"}, (d, w) -> {
+            final File dir = partsDir();
+            final File out = new File(dir, pt.name + ".img");
+            final File parent = img.getAbsoluteFile().getParentFile();
+            final File raw = info.sparse ? unique(sibling("_lpunpack.raw.img")) : img;
             final boolean openAfter = w == 1;
-            a.runBgP("استخراج " + pt.name, null, p -> withSrc(img, info.sparse, s -> Lp.extract(s, pt, out, p, null)), () -> {
-                if (openAfter) files().img.open(out); else a.showError("تم الاستخراج:\n" + out.getPath());
+            a.runBgP("AOSP lpunpack — " + pt.name, null, progress -> {
+                if (info.sparse) {
+                    Io.checkSpace(parent, info.rawSize + pt.size);
+                    Sparse.toRaw(img, raw, progress, null);
+                }
+                if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الأقسام");
+                LpTools.run(a, "lpunpack",
+                        java.util.Arrays.asList("-p", pt.name, raw.getAbsolutePath(), dir.getAbsolutePath()),
+                        null, progress);
+                if (!out.isFile() || out.length() != pt.size) {
+                    throw new java.io.IOException("فشل التحقق من القسم المستخرج " + pt.name);
+                }
+            }, () -> {
+                if (openAfter) files().img.open(out);
+                else a.showError("تم استخراج القسم باستخدام AOSP lpunpack:\n" + out.getPath());
             });
         }).show();
     }
@@ -233,23 +249,41 @@ class ImgScreen {
     void extractSelected() {
         if (sel.isEmpty()) { a.toast("حدّد قسماً واحداً على الأقل"); return; }
         final File dir = partsDir();
+        final File parent = img.getAbsoluteFile().getParentFile();
+        final File raw = info.sparse ? unique(sibling("_lpunpack.raw.img")) : img;
         final List<Lp.Part> todo = new ArrayList<>();
-        long need = 0;
-        for (Lp.Part pt : meta.parts) if (sel.contains(pt.name) && pt.size > 0) { todo.add(pt); need += pt.size; }
-        final long fneed = need;
-        a.confirm("سيُستخرج " + todo.size() + " قسم (" + Io.human(need) + ") إلى:\n" + dir.getPath() + "\nالمتاح: " + Io.human(img.getAbsoluteFile().getParentFile().getUsableSpace()), () -> {
-            final Io.Cancel c = new Io.Cancel();
-            a.runBgP("استخراج الأقسام", c, p -> {
-                Io.checkSpace(dir.exists() ? dir : dir.getParentFile(), fneed);
-                withSrc(img, info.sparse, s -> {
-                    long done = 0;
-                    for (Lp.Part pt : todo) {
-                        final long base = done;
-                        Lp.extract(s, pt, new File(dir, pt.name + ".img"), (d0, t0) -> p.on(base + d0, fneed), c);
-                        done += pt.size;
+        long need = info.sparse ? info.rawSize : 0;
+        for (Lp.Part pt : meta.parts) {
+            if (sel.contains(pt.name) && pt.size > 0) {
+                todo.add(pt);
+                need += pt.size;
+            }
+        }
+        final long required = need;
+        a.confirm("سيستخدم التطبيق أداة AOSP lpunpack لاستخراج " + todo.size()
+                + " قسم إلى:\n" + dir.getPath()
+                + "\nالمطلوب تقديرياً: " + Io.human(required)
+                + "\nالمتاح: " + Io.human(parent.getUsableSpace())
+                + "\nلن يتغير super الأصلي.", () -> {
+            final Io.Cancel cancel = new Io.Cancel();
+            a.runBgP("AOSP lpunpack — استخراج الأقسام المحددة", cancel, progress -> {
+                Io.checkSpace(parent, required);
+                if (info.sparse) Sparse.toRaw(img, raw, progress, cancel);
+                if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الأقسام");
+                List<String> args = new ArrayList<>();
+                for (Lp.Part pt : todo) { args.add("-p"); args.add(pt.name); }
+                args.add(raw.getAbsolutePath());
+                args.add(dir.getAbsolutePath());
+                LpTools.run(a, "lpunpack", args, cancel, progress);
+                for (Lp.Part pt : todo) {
+                    File out = new File(dir, pt.name + ".img");
+                    if (!out.isFile() || out.length() != pt.size) {
+                        throw new java.io.IOException("فشل التحقق من القسم " + pt.name);
                     }
-                });
-            }, () -> a.showError("تم استخراج " + todo.size() + " قسم إلى:\n" + dir.getPath()));
+                }
+                progress.on(1, 1);
+            }, () -> a.showError("اكتمل استخراج " + todo.size()
+                    + " قسم باستخدام AOSP lpunpack إلى:\n" + dir.getPath()));
         });
     }
 
