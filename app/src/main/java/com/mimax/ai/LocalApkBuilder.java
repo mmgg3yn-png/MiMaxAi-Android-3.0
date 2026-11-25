@@ -186,8 +186,12 @@ public final class LocalApkBuilder {
         int nameLength = name.getBytes("UTF-8").length;
         int padding = (int) ((4 - ((offset + 30 + nameLength + 4) & 3)) & 3);
         if (padding == 0) return null;
-        return new byte[] { 0x35, (byte) 0xD9, (byte) padding, 0x00,
-                (byte) 0x00, (byte) 0x00, (byte) 0x00 };
+        byte[] extra = new byte[4 + padding];
+        extra[0] = 0x35;
+        extra[1] = (byte) 0xD9;
+        extra[2] = (byte) padding;
+        extra[3] = 0x00;
+        return extra;
     }
 
     private static final class CountingOutputStream extends FilterOutputStream {
