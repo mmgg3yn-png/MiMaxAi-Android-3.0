@@ -85,23 +85,25 @@ final class ExtensionRuntime {
                 }
             }
         }
-        if (!extensionId.isEmpty()) ExtensionState.begin(activity, extensionId);
         JSONObject action = manifest.optJSONObject("action");
         String handler = action == null
                 ? manifest.optString("_file_action_handler", "")
                 : action.optString("handler", "");
         if ("javascript".equals(handler)) {
+            if (!extensionId.isEmpty()) ExtensionState.begin(activity, extensionId);
             try {
                 ExtensionScriptRuntime.execute(activity, extensionId, selectedFile);
-                ExtensionState.clearActive(activity);
                 ExtensionState.appendLog(activity, extensionId, "JavaScript extension completed.");
             } catch (Throwable error) {
-                ExtensionState.clearActive(activity);
                 ExtensionState.appendLog(activity, extensionId, "Extension script failed: " + error);
                 Toast.makeText(activity, "فشل تشغيل الإضافة: " + error.getMessage(), Toast.LENGTH_LONG).show();
+            } finally {
+                ExtensionState.clearActive(activity);
             }
             return;
         }
+        // Declarative handlers only launch trusted app-owned screens. Do not mark them
+        // as executing extensions: a later unrelated app crash must not disable them.
         runHandler(activity, handler, selectedFile);
     }
 
