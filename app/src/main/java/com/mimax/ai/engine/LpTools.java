@@ -157,6 +157,9 @@ public final class LpTools {
             throw new Io.Unsupported("جهاز super يحتوي أعلام Metadata غير مدعومة؛ أُوقف البناء بدلاً من فقدها.");
         }
         boolean suffix = (device.flags & 1) != 0;
+        if (suffix && meta.slotCount > 2) {
+            throw new Io.Unsupported("إصدار AOSP المضمّن يدعم لاحقتي A/B فقط؛ لن يعيد بناء metadata متعددة الفتحات.");
+        }
         for (Lp.Group group : meta.groups) {
             if ((group.flags & ~1) != 0) {
                 throw new Io.Unsupported("المجموعة " + group.name + " تحتوي أعلام Metadata غير مدعومة.");
