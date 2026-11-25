@@ -161,9 +161,9 @@ class ImgScreen {
                 }
                 if (!stage.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد مؤقت للاستخراج");
                 LpTools.run(a, "lpunpack",
-                        java.util.Arrays.asList("-p", pt.name, raw.getAbsolutePath(), stage.getAbsolutePath()),
+                        java.util.Arrays.asList("-p", Lp.unpackPartitionName(pt, 0), raw.getAbsolutePath(), stage.getAbsolutePath()),
                         null, progress);
-                File staged = new File(stage, pt.name + ".img");
+                File staged = new File(stage, Lp.unpackFileName(pt, 0));
                 if (!staged.isFile() || staged.length() != pt.size) {
                     throw new java.io.IOException("فشل التحقق من القسم المستخرج " + pt.name);
                 }
@@ -207,7 +207,7 @@ class ImgScreen {
                 for (Lp.Part part : meta.parts) {
                     if (cancel != null) cancel.check();
                     if (part.size == 0) continue;
-                    File extracted = new File(stage, part.name + ".img");
+                    File extracted = new File(stage, Lp.unpackFileName(part, 0));
                     if (!extracted.isFile() || extracted.length() != part.size) {
                         throw new java.io.IOException("فشل التحقق من القسم " + part.name
                                 + " — المتوقع " + Io.human(part.size) + "، الناتج "
@@ -299,12 +299,12 @@ class ImgScreen {
                 File stage = unique(new File(parent, base(img) + "_selected_stage"));
                 if (!stage.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد مؤقت للاستخراج");
                 List<String> args = new ArrayList<>();
-                for (Lp.Part pt : todo) { args.add("-p"); args.add(pt.name); }
+                for (Lp.Part pt : todo) { args.add("-p"); args.add(Lp.unpackPartitionName(pt, 0)); }
                 args.add(raw.getAbsolutePath());
                 args.add(stage.getAbsolutePath());
                 LpTools.run(a, "lpunpack", args, cancel, progress);
                 for (Lp.Part pt : todo) {
-                    File extracted = new File(stage, pt.name + ".img");
+                    File extracted = new File(stage, Lp.unpackFileName(pt, 0));
                     if (!extracted.isFile() || extracted.length() != pt.size) {
                         throw new java.io.IOException("فشل التحقق من القسم " + pt.name);
                     }
@@ -364,7 +364,7 @@ class ImgScreen {
                 for (Lp.Part part : meta.parts) {
                     if (cancel != null) cancel.check();
                     File edited = new File(editedDir, part.name + "_edited.img");
-                    File original = new File(extractedDir, part.name + ".img");
+                    File original = new File(extractedDir, Lp.unpackFileName(part, 0));
                     if (part.size == 0 && !original.exists() && !original.createNewFile()) {
                         throw new java.io.IOException("تعذر إنشاء القسم الفارغ " + part.name);
                     }
@@ -391,7 +391,7 @@ class ImgScreen {
 
                 for (Lp.Part part : meta.parts) {
                     if (cancel != null) cancel.check();
-                    File actual = new File(verifyDir, part.name + ".img");
+                    File actual = new File(verifyDir, Lp.unpackFileName(part, 0));
                     LpTools.verifyPaddedImage(images.get(part.name), actual);
                 }
                 deleteTree(work);
