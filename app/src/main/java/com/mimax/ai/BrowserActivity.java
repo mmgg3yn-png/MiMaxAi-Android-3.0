@@ -121,6 +121,7 @@ public class BrowserActivity extends Activity {
         address.setTextColor(textColor);address.setHintTextColor(mutedColor);
         if(getIntent()!=null&&getIntent().getStringExtra("open_url")!=null)web.loadUrl(getIntent().getStringExtra("open_url"));
         else if(state==null)web.loadUrl("https://www.google.com");else if(state.getString("url")!=null)web.loadUrl(state.getString("url"));
+        if(getIntent()!=null&&getIntent().getBooleanExtra("manage_shortcuts",false)){ ui.postDelayed(this::showSiteShortcuts,250); getIntent().removeExtra("manage_shortcuts"); }
         if(getIntent()!=null&&getIntent().getBooleanExtra("search_widget",false)){
             address.requestFocus();
             ui.postDelayed(()->((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE))
