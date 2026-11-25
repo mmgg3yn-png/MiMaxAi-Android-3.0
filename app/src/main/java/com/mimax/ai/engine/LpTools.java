@@ -133,6 +133,9 @@ public final class LpTools {
         }
         Lp.Device device = meta.devices.get(0);
         if (device.name.isEmpty() || device.size <= 0) throw new Io.Corrupt("بيانات جهاز super غير مكتملة.");
+        if ((meta.headerFlags & ~1) != 0) {
+            throw new Io.Unsupported("ترويسة LP تحتوي أعلاماً غير مدعومة؛ أُوقف البناء لتجنب فقد Metadata.");
+        }
         if ((device.flags & ~1) != 0) {
             throw new Io.Unsupported("جهاز super يحتوي أعلام Metadata غير مدعومة؛ أُوقف البناء بدلاً من فقدها.");
         }
