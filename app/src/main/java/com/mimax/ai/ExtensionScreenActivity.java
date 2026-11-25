@@ -37,6 +37,7 @@ public class ExtensionScreenActivity extends Activity {
             root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
             Button close=new Button(this);close.setText("إغلاق");close.setOnClickListener(v->finish());root.addView(close);
             setContentView(root);
+        AppPalette.apply(this, root);
         }catch(Exception e){toast("تعذر فتح الإضافة: "+e.getMessage());finish();}
     }
     private void addComponent(LinearLayout parent,JSONObject c)throws Exception{
