@@ -4,6 +4,15 @@ import android.app.Activity;
 import android.app.DownloadManager;
 import android.app.AlertDialog;
 import android.app.SearchManager;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.drawable.Icon;
+import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
+import android.os.Handler;
+import android.os.Looper;
+import android.widget.FrameLayout;
+import android.widget.ScrollView;
 import android.content.Context;
 import android.content.Intent;
 import android.database.Cursor;
@@ -36,7 +45,10 @@ public class BrowserActivity extends Activity {
     private WebView web;
     private EditText address;
     private ProgressBar progress;
-    private LinearLayout root, toolbar;
+    private LinearLayout root, toolbar, sideRail, downloadRows;
+    private Handler ui = new Handler(Looper.getMainLooper());
+    private Runnable downloadRefresh;
+    private int baseColor, surfaceColor, textColor, mutedColor, accentColor;
     private boolean desktop=false, immersive=false;
     private static final String PREF="mimax_browser";
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
@@ -44,23 +56,29 @@ public class BrowserActivity extends Activity {
 
     @Override public void onCreate(Bundle state){
         super.onCreate(state);
-        getWindow().setStatusBarColor(0xFF17212D);getWindow().setNavigationBarColor(0xFF17212D);
-        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(0xFFF6F7F9);
-        toolbar=new LinearLayout(this);toolbar.setOrientation(LinearLayout.VERTICAL);toolbar.setPadding(dp(5),dp(4),dp(5),dp(2));
-        LinearLayout line=new LinearLayout(this);line.setGravity(Gravity.CENTER_VERTICAL);
-        address=new EditText(this);address.setSingleLine(true);address.setTextSize(14);address.setHint("ابحث أو أدخل رابطاً");
+        Store.init(this);
+        Theme t=Theme.get(Store.theme());
+        if(Store.flag("ccOn",false)) t=Theme.custom(t);
+        baseColor=t.base;surfaceColor=t.surface;textColor=t.tx;mutedColor=t.mut;accentColor=t.ac;
+        getWindow().setStatusBarColor(baseColor);getWindow().setNavigationBarColor(baseColor);
+        root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(baseColor);
+        toolbar=new LinearLayout(this);toolbar.setOrientation(LinearLayout.VERTICAL);
+        toolbar.setPadding(dp(5),dp(3),dp(5),dp(2));toolbar.setBackgroundColor(surfaceColor);
+        LinearLayout addressLine=new LinearLayout(this);addressLine.setGravity(Gravity.CENTER_VERTICAL);
+        address=new EditText(this);address.setSingleLine(true);address.setTextSize(13);
+        address.setHint("ابحث أو أدخل رابطاً");address.setTextColor(textColor);address.setHintTextColor(mutedColor);
         address.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_URI);
-        line.addView(address,new LinearLayout.LayoutParams(0,dp(46),1));
-        addButton(line,"فتح",()->loadAddress());toolbar.addView(line);
-        LinearLayout actions=new LinearLayout(this);
-        addButton(actions,"رجوع",()->{if(web.canGoBack())web.goBack();});
-        addButton(actions,"تقدم",()->{if(web.canGoForward())web.goForward();});
-        addButton(actions,"تحديث",()->web.reload());
-        addButton(actions,"الرئيسية",()->web.loadUrl("https://www.google.com"));
-        addButton(actions,"⋮",this::showMenu);
-        toolbar.addView(actions);root.addView(toolbar);
+        address.setPadding(dp(10),0,dp(8),0);
+        GradientDrawable fieldBg=new GradientDrawable();fieldBg.setColor(t.surface2);fieldBg.setCornerRadius(dp(12));fieldBg.setStroke(dp(1),t.line);
+        address.setBackground(fieldBg);
+        addressLine.addView(address,new LinearLayout.LayoutParams(0,dp(40),1));
+        addButton(addressLine,"بحث",()->loadAddress(),48);
+        toolbar.addView(addressLine);
+        root.addView(toolbar);
         progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
-        root.addView(progress,new LinearLayout.LayoutParams(-1,dp(3)));
+        progress.setProgressTintList(android.content.res.ColorStateList.valueOf(accentColor));
+        root.addView(progress,new LinearLayout.LayoutParams(-1,dp(2)));
+        FrameLayout browserArea=new FrameLayout(this);
         web=new WebView(this);
         WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);
         s.setLoadsImagesAutomatically(true);s.setAllowFileAccess(false);s.setAllowContentAccess(true);
@@ -78,17 +96,45 @@ public class BrowserActivity extends Activity {
             @Override public void onReceivedTitle(WebView v,String t){setTitle(t==null?"Mi_Max Browser":t);}
             @Override public boolean onCreateWindow(WebView v,boolean dialog,boolean gesture,android.os.Message resultMsg){
                 WebView.HitTestResult hit=v.getHitTestResult();String u=hit==null?null:hit.getExtra();
-                if(u!=null)web.loadUrl(u);else toast("فتح النوافذ الجديدة غير مدعوم بعد");
-                return false;
+                if(u!=null)web.loadUrl(u);else toast("فتح النوافذ الجديدة غير مدعوم بعد");return false;
             }
         });
         web.setDownloadListener((u,ua,cd,mime,len)->download(u,ua,cd,mime));
-        root.addView(web,new LinearLayout.LayoutParams(-1,0,1));
-        Button back=new Button(this);back.setText("العودة إلى Mi_Max Ai");back.setAllCaps(false);back.setOnClickListener(v->finish());
-        root.addView(back,new LinearLayout.LayoutParams(-1,dp(42)));setContentView(root);AppPalette.apply(this,root);
-        if(state==null)web.loadUrl("https://www.google.com");else if(state.getString("url")!=null)web.loadUrl(state.getString("url"));
+        browserArea.addView(web,new FrameLayout.LayoutParams(-1,-1));
+        sideRail=new LinearLayout(this);sideRail.setOrientation(LinearLayout.VERTICAL);
+        sideRail.setGravity(Gravity.CENTER);sideRail.setPadding(dp(2),dp(4),dp(2),dp(4));
+        sideRail.setBackgroundColor(surfaceColor);
+        addRailButton("‹",()->{if(web.canGoBack())web.goBack();});
+        addRailButton("›",()->{if(web.canGoForward())web.goForward();});
+        addRailButton("↻",()->web.reload());
+        addRailButton("⋮",this::showMenu);
+        FrameLayout.LayoutParams railParams=new FrameLayout.LayoutParams(dp(42),-2,Gravity.RIGHT|Gravity.CENTER_VERTICAL);
+        browserArea.addView(sideRail,railParams);
+        root.addView(browserArea,new LinearLayout.LayoutParams(-1,0,1));
+        Button back=new Button(this);back.setText("رجوع إلى Mi_Max Ai");back.setAllCaps(false);back.setTextSize(10);
+        back.setMinHeight(dp(32));back.setPadding(dp(4),0,dp(4),0);back.setOnClickListener(v->finish());
+        back.setTextColor(textColor);back.setBackgroundColor(surfaceColor);
+        root.addView(back,new LinearLayout.LayoutParams(-1,dp(34)));
+        setContentView(root);
+        AppPalette.apply(this,root);
+        // Re-apply compact browser colors after the shared palette pass.
+        address.setTextColor(textColor);address.setHintTextColor(mutedColor);
+        if(getIntent()!=null&&getIntent().getStringExtra("open_url")!=null)web.loadUrl(getIntent().getStringExtra("open_url"));
+        else if(state==null)web.loadUrl("https://www.google.com");else if(state.getString("url")!=null)web.loadUrl(state.getString("url"));
     }
-    private void addButton(LinearLayout row,String label,Runnable run){Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(11);row.addView(b,new LinearLayout.LayoutParams(0,dp(42),1));b.setOnClickListener(v->run.run());}
+    private void addButton(LinearLayout row,String label,Runnable run,int width){
+        Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(10);
+        b.setMinHeight(dp(36));b.setMinimumHeight(dp(36));b.setPadding(dp(3),0,dp(3),0);
+        b.setTextColor(Theme.lum(accentColor)>0.58f?0xFF10131A:Color.WHITE);
+        GradientDrawable bg=new GradientDrawable();bg.setColor(accentColor);bg.setCornerRadius(dp(10));b.setBackground(bg);
+        row.addView(b,new LinearLayout.LayoutParams(dp(width),dp(36)));b.setOnClickListener(v->run.run());
+    }
+    private void addRailButton(String label,Runnable run){
+        Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(17);
+        b.setMinHeight(dp(38));b.setMinimumHeight(dp(38));b.setPadding(0,0,0,0);
+        b.setTextColor(textColor);b.setBackgroundColor(surfaceColor);
+        sideRail.addView(b,new LinearLayout.LayoutParams(-1,dp(40)));b.setOnClickListener(v->run.run());
+    }
     private boolean handleUrl(String u){
         if(u==null)return true;
         if(u.startsWith("http://")||u.startsWith("https://"))return false;
@@ -104,7 +150,7 @@ public class BrowserActivity extends Activity {
     }
     private void showMenu(){
         String[] items={"وضع سطح المكتب: "+(desktop?"مفعّل":"متوقف"),"ملء الشاشة: "+(immersive?"مفعّل":"متوقف"),
-            "إضافة للمفضلة","المفضلة","السجل","التنزيلات","بحث داخل الصفحة","مشاركة الرابط","مسح بيانات التصفح"};
+            "إضافة للمفضلة","المفضلة","السجل","التنزيلات","إضافة اختصار للموقع","اختصاراتي","بحث داخل الصفحة","مشاركة الرابط","مسح بيانات التصفح"};
         new AlertDialog.Builder(this).setTitle("Mi_Max Browser").setItems(items,(d,w)->{
             switch(w){
                 case 0: desktop=!desktop;applyDesktop();toast(desktop?"تم تفعيل وضع سطح المكتب":"تم إيقاف وضع سطح المكتب");break;
@@ -113,9 +159,11 @@ public class BrowserActivity extends Activity {
                 case 3: showSaved("bookmarks","المفضلة");break;
                 case 4: showSaved("history","السجل");break;
                 case 5: showDownloads();break;
-                case 6: findOnPage();break;
-                case 7: sharePage();break;
-                case 8: clearBrowsingData();break;
+                case 6: createSiteShortcut();break;
+                case 7: showSiteShortcuts();break;
+                case 8: findOnPage();break;
+                case 9: sharePage();break;
+                case 10: clearBrowsingData();break;
             }
         }).show();
     }
@@ -180,6 +228,46 @@ public class BrowserActivity extends Activity {
                 else toast("التنزيل لم يكتمل بعد");
             }else if(x!=null)x.close();
         }).show();
+    }
+
+    private void createSiteShortcut(){
+        String url=web.getUrl();if(url==null)return;
+        EditText name=new EditText(this);name.setSingleLine(true);name.setHint("اسم الاختصار");
+        String pageTitle=web.getTitle();name.setText(pageTitle==null||pageTitle.trim().isEmpty()?url:pageTitle);
+        new AlertDialog.Builder(this).setTitle("اختصار الموقع").setMessage(url).setView(name)
+            .setNegativeButton("إلغاء",null).setPositiveButton("حفظ وتثبيت",(d,w)->{
+                String label=name.getText().toString().trim();if(label.isEmpty()){toast("اكتب اسم الاختصار");return;}
+                android.content.SharedPreferences p=getSharedPreferences(PREF,0);
+                JSONArray a;try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
+                try{org.json.JSONObject o=new org.json.JSONObject();o.put("name",label);o.put("url",url);a.put(o);p.edit().putString("site_shortcuts",a.toString()).apply();}catch(Exception ignored){}
+                if(Build.VERSION.SDK_INT>=26){
+                    ShortcutManager sm=getSystemService(ShortcutManager.class);
+                    if(sm!=null&&sm.isRequestPinShortcutSupported()){
+                        Intent launch=new Intent(this,BrowserActivity.class);launch.putExtra("open_url",url);
+                        ShortcutInfo si=new ShortcutInfo.Builder(this,"site_"+Integer.toHexString(url.hashCode()))
+                            .setShortLabel(label.length()>25?label.substring(0,25):label).setLongLabel(label)
+                            .setIcon(Icon.createWithResource(this,android.R.drawable.ic_menu_view)).setIntent(launch).build();
+                        sm.requestPinShortcut(si,null);
+                    }
+                }
+                toast("تم حفظ الاختصار. إذا وافق الهاتف سيظهر على الشاشة الرئيسية.");
+            }).show();
+    }
+    private void showSiteShortcuts(){
+        android.content.SharedPreferences p=getSharedPreferences(PREF,0);JSONArray a;
+        try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
+        ArrayList<String> labels=new ArrayList<>();ArrayList<String> urls=new ArrayList<>();
+        for(int i=0;i<a.length();i++){org.json.JSONObject o=a.optJSONObject(i);if(o!=null){labels.add(o.optString("name"));urls.add(o.optString("url"));}}
+        if(labels.isEmpty()){toast("لا توجد اختصارات محفوظة");return;}
+        new AlertDialog.Builder(this).setTitle("اختصارات المواقع").setItems(labels.toArray(new String[0]),(d,w)->web.loadUrl(urls.get(w)))
+            .setNeutralButton("إدارة", (d,w)->manageSiteShortcuts()).show();
+    }
+    private void manageSiteShortcuts(){
+        android.content.SharedPreferences p=getSharedPreferences(PREF,0);JSONArray a;
+        try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
+        ArrayList<String> labels=new ArrayList<>();for(int i=0;i<a.length();i++){org.json.JSONObject o=a.optJSONObject(i);if(o!=null)labels.add(o.optString("name"));}
+        if(labels.isEmpty()){toast("لا توجد اختصارات");return;}
+        new AlertDialog.Builder(this).setTitle("حذف اختصار").setItems(labels.toArray(new String[0]),(d,w)->{a.remove(w);p.edit().putString("site_shortcuts",a.toString()).apply();toast("تم حذف الاختصار من القائمة المحفوظة");}).setNegativeButton("إغلاق",null).show();
     }
     private void findOnPage(){
         EditText q=new EditText(this);q.setSingleLine(true);q.setHint("النص المطلوب");
