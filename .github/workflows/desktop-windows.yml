@@ -90,6 +90,37 @@ jobs:
           This package includes its matching portable Java runtime.
           It does not require Android, ADB, or Termux.
           '@ | Set-Content "$pkg/README.txt" -Encoding UTF8
+          @'
+          using System;
+          using System.Diagnostics;
+          using System.IO;
+          using System.Windows.Forms;
+          internal static class MiMaxAiLauncher {
+            [STAThread] static void Main() {
+              string root = AppDomain.CurrentDomain.BaseDirectory;
+              string java = Path.Combine(root, "runtime", "bin", "javaw.exe");
+              string jar = Path.Combine(root, "MiMaxAi-Desktop.jar");
+              if (!File.Exists(java) || !File.Exists(jar)) {
+                MessageBox.Show("Mi_Max Ai files are incomplete.", "Mi_Max Ai");
+                return;
+              }
+              ProcessStartInfo p = new ProcessStartInfo();
+              p.FileName = java; p.Arguments = "-jar \"" + jar + "\"";
+              p.WorkingDirectory = root; p.UseShellExecute = false;
+              try { Process.Start(p); }
+              catch (Exception e) { MessageBox.Show(e.Message, "Mi_Max Ai"); }
+            }
+          }
+          '@ | Set-Content "desktop/build/Launcher.cs" -Encoding UTF8
+          $platform = "x64"
+          $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          if ("\${{ matrix.arch }}" -eq "x86") {
+            $platform = "x86"
+            $csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe"
+          }
+          if (-not (Test-Path $csc)) { throw "C# compiler not found: $csc" }
+          & $csc /nologo /target:winexe /platform:$platform /reference:System.Windows.Forms.dll /out:"$pkg/MiMaxAi.exe" "desktop/build/Launcher.cs"
+          if ($LASTEXITCODE -ne 0) { throw "EXE launcher compilation failed" }
           Compress-Archive -Path "$pkg\*" -DestinationPath "desktop/build/${{ matrix.artifact }}.zip" -Force
 
       - name: Upload Windows package
