@@ -32,8 +32,12 @@ p = Path(sys.argv[1])
 s = p.read_text()
 # The old bundled liblog sources reference private APIs removed from modern NDK headers.
 # Use the NDK's public liblog.so at link/runtime; base/logging.cpp has a dlsym + stable-API fallback.
-pattern = r'cd lib\\ncd liblog\\n.*?unset src\\n\\ncd \.\./zlib'
-replacement = 'cd lib\\nmkdir -p lib\\n$AR rcs lib/liblog.a\\n\\ncd zlib'
+pattern = r'cd lib\s+cd liblog\s+.*?unset src\s+cd \.\./zlib'
+replacement = """cd lib
+mkdir -p lib
+$AR rcs lib/liblog.a
+
+cd zlib"""
 s, count = re.subn(pattern, replacement, s, count=1, flags=re.S)
 if count != 1:
     raise SystemExit('Could not replace obsolete bundled liblog build block')
