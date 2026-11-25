@@ -62,7 +62,7 @@ public final class AiPanel {
    c.setConnectTimeout(15000);c.setReadTimeout(30000);c.setRequestProperty("Authorization","Bearer "+activeKey());
    int code=c.getResponseCode();String data=read(code>=400?c.getErrorStream():c.getInputStream());c.disconnect();
    if(code>=400)throw new Exception("HTTP "+code+": "+data);
-   Matcher m=Pattern.compile("\"usage\"\\s*:\\s*([0-9.]+)").matcher(data);
+   Matcher m=Pattern.compile("usage.{0,4}:\\s*([0-9.]+)").matcher(data);
    return m.find()?"المفتاح يعمل. الاستهلاك: "+m.group(1)+" دولار":"المفتاح يعمل.";
   }protected void done(){try{keyStatus.setText(get());status.setText("تم الفحص");}catch(Exception e){keyStatus.setText("فشل الفحص: "+e.getMessage());status.setText("تعذر التحقق");}}}.execute();
  }
