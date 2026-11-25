@@ -13,8 +13,8 @@ This file is the source-of-truth checklist for bringing the Windows desktop buil
 
 | Android source | Capability to preserve | Windows implementation direction | Status |
 |---|---|---|---|
-| MainActivity / Store | Home, chat, settings, local profile, prompt, memory, model choices, temperature, font scale, motion, stream, auto-memory | Desktop shell + persistent local profile/settings/chat store | Pending |
-| Theme / AppPalette / Backdrop / Glass | All six palettes, custom colors, three styles, animated glass backdrop | Shared palette model and Swing custom painting; preserve exact theme values | In progress: palette identifiers added; full visual parity pending |
+| MainActivity / Store | Home, chat, settings, local profile, prompt, memory, model choices, temperature, font scale, motion, stream, auto-memory | Desktop shell + persistent local profile/settings/chat store | Partial: desktop settings panel now stores profile, prompt, audio model, temperature, stream/auto-memory/recall/motion flags, font scale, style, custom colors and local settings backup/restore; full chats/memory still pending |
+| Theme / AppPalette / Backdrop / Glass | All six palettes, custom colors, three styles, animated glass backdrop | Shared palette model and Swing custom painting; preserve exact theme values | Partial: six exact Android palette values and custom surface colors ported; animated backdrop and glass/material rendering still pending |
 | Api / Models / Vault | OpenRouter, model discovery, text/image/audio model selection, API key handling | HTTP client, model catalogue, secure local key storage, modality-aware requests | Partial: basic text request only |
 | AgentActivity | Agent task workspace, file attachment, proposed changes, export, optional PC connection | Sandboxed workspace and explicit approval for file changes | Pending |
 | BrowserActivity / FastDownloadTask | Browser, tabs, downloads, desktop browsing | Embedded browser engine and download manager; system browser fallback only if embedded engine unavailable | Pending |
