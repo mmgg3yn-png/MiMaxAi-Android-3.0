@@ -59,6 +59,8 @@ public class DeveloperStudioActivity extends Activity {
     }
     private Button button(String s, Runnable action) {
         Button b = new Button(this); b.setText(s); b.setAllCaps(false);
+        b.setTextSize(11); b.setMinHeight(dp(34)); b.setMinimumHeight(dp(34));
+        b.setPadding(dp(4),0,dp(4),0);
         b.setOnClickListener(v -> action.run()); return b;
     }
 
@@ -186,17 +188,29 @@ public class DeveloperStudioActivity extends Activity {
             editor.setPadding(dp(10), dp(10), dp(10), dp(10));
             ScrollView scroll = new ScrollView(this); scroll.addView(editor);
             root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-            root.addView(button("حفظ الملف", this::saveSource));
-            root.addView(button("ملفات المشروع / إضافة ملف", this::showProjectFiles));
-            if (!html) root.addView(button("تعديل requirements.txt", this::editRequirements));
-            if (html) root.addView(button("معاينة HTML دون إنترنت", this::previewHtml));
-            root.addView(button("تحويل المشروع إلى APK محلياً", this::buildLocalApk));
-            if (!html) root.addView(button("معلومات تشغيل Python والمكتبات", this::showPythonRuntimeInfo));
-            root.addView(button("حالة محركات البناء", this::showOfflineBuildStatus));
-            root.addView(button("العودة للمشاريع", this::showHome));
+            LinearLayout actions = new LinearLayout(this); actions.setOrientation(LinearLayout.VERTICAL);
+            addCompactRow(actions, new String[]{"حفظ","ملفات + إضافة"}, new Runnable[]{this::saveSource,this::showProjectFiles});
+            if (!html) addCompactRow(actions, new String[]{"requirements.txt","Python والمكتبات"}, new Runnable[]{this::editRequirements,this::showPythonRuntimeInfo});
+            if (html) addCompactRow(actions, new String[]{"معاينة HTML دون إنترنت","حالة محركات البناء"}, new Runnable[]{this::previewHtml,this::showOfflineBuildStatus});
+            else addCompactRow(actions, new String[]{"حالة محركات البناء","إنشاء APK"}, new Runnable[]{this::showOfflineBuildStatus,this::buildLocalApk});
+            if (html) addCompactRow(actions, new String[]{"إنشاء APK","العودة للمشاريع"}, new Runnable[]{this::buildLocalApk,this::showHome});
+            else addCompactRow(actions, new String[]{"العودة للمشاريع"}, new Runnable[]{this::showHome});
+            root.addView(actions);
             setContentView(root);
         AppPalette.apply(this, root);
         } catch (Exception e) { toast("تعذر فتح المشروع: " + e.getMessage()); }
+    }
+
+    private void addCompactRow(LinearLayout parent, String[] labels, Runnable[] actions) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < labels.length; i++) {
+            Button b = button(labels[i], actions[i]);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(36), 1f);
+            lp.setMargins(dp(2), dp(2), dp(2), dp(2));
+            row.addView(b, lp);
+        }
+        parent.addView(row, new LinearLayout.LayoutParams(-1, dp(40)));
     }
 
     private void saveSource() {
