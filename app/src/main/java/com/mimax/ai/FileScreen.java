@@ -26,6 +26,7 @@ import android.widget.TextView;
 import com.mimax.ai.engine.Archives;
 import com.mimax.ai.engine.BootImg;
 import com.mimax.ai.engine.Io;
+import com.mimax.ai.engine.LogoBin;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -208,6 +209,7 @@ class FileScreen {
     void open(final File f) {
         if (f.isDirectory()) { a.openScreen(f.getName(), () -> renderDir(f)); return; }
         String n = f.getName().toLowerCase();
+        if (LogoBin.looksLike(f)) { img.open(f); return; }
         if (ApkInstaller.isInstallable(n)) {
             a.gb().setTitle(f.getName()).setItems(new String[]{"تثبيت التطبيق", "تصفح كأرشيف"}, (d, w) -> { if (w == 0) a.installer.install(f); else zip.open(f); }).show();
             return;
@@ -274,6 +276,15 @@ class FileScreen {
         List<String> L = new ArrayList<>();
         final List<ZipScreen.Act> A = new ArrayList<>();
         L.add("فتح"); A.add(() -> open(f));
+        if (LogoBin.isProject(f)) {
+            L.add("إعادة تجميع مشروع logo.bin");
+            A.add(() -> {
+                final File out = unique(new File(f.getParentFile(), f.getName() + "_new.logo.bin"));
+                a.confirm("إعادة تجميع صور المشروع إلى ملف logo.bin جديد؟\n" + out.getPath(), () ->
+                        a.runBg("إعادة تجميع logo.bin…", null, () -> LogoBin.repack(f, out),
+                                () -> a.showError("تم إنشاء الملف والتحقق منه:\n" + out.getPath())));
+            });
+        }
         if (f.isFile()) { L.add("فتح كنص"); A.add(() -> openText(f)); L.add("فتح كصورة ROM"); A.add(() -> img.open(f)); }
         if (f.isFile() && ApkInstaller.isInstallable(f.getName())) { L.add("تثبيت التطبيق"); A.add(() -> a.installer.install(f)); }
         L.add("نسخ"); A.add(() -> { clip = f; clipCut = false; a.toast("تم النسخ — افتح المجلد الوجهة واضغط «لصق»"); renderDir(cur); });
