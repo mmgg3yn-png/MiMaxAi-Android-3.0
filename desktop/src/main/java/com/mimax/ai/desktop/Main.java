@@ -54,6 +54,7 @@ public final class Main extends JFrame {
         tabs.addTab("الأرشيف", archives());
         tabs.addTab("logo.bin", logo());
         tabs.addTab("السجل", logPanel());
+        tabs.addTab("الإعدادات", new DesktopSettingsPanel(prefs, this::refreshAppearance).view());
         tabs.addTab("المظهر", appearancePanel());
         tabs.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         style(tabs);
@@ -233,9 +234,10 @@ public final class Main extends JFrame {
         new Palette("dusk","الغسق","بنفسجي رمادي دافئ",true,0xFF15121A,0xFF1F1B27,0xFF292433,0xFF372F44,0xFFEAE6F0,0xFFA39BB3,0xFFB39DDB,0xFFE57373),
         new Palette("sand","الرمل","فاتح دافئ هادئ",false,0xFFF3EFE8,0xFFFFFFFF,0xFFEAE4DA,0xFFD9D1C4,0xFF2A2620,0xFF7A7064,0xFFB5651D,0xFFC0392B)
     };
-    private void loadAppearance(){themeId=prefs.get("theme","basic");designStyle=prefs.get("style","normal");motion=prefs.getBoolean("motion",true);setPalette();}
-    private Palette selectedPalette(){for(Palette p:THEMES)if(p.id.equals(themeId))return p;return THEMES[0];}
-    private void setPalette(){Palette p=selectedPalette();BG=p.base;PANEL=p.surface;PANEL2=p.surface2;LINE=p.line;FG=p.text;MUTED=p.muted;ACCENT=p.accent;}
+    private void loadAppearance(){themeId=prefs.get("theme","basic");int st=prefs.getInt("style",0);designStyle=st==1?"glass":st==2?"material":"normal";motion=prefs.getBoolean("motion",true);setPalette();}
+    private Color prefColor(String key,Color fallback){if(!prefs.getBoolean("ccOn",false))return fallback;try{return new Color((int)Long.parseLong(prefs.get("cc_"+key,String.format("%08X",fallback.getRGB())),16),true);}catch(Exception e){return fallback;}}
+    private DesktopTheme selectedPalette(){return DesktopTheme.byId(themeId);}
+    private void setPalette(){DesktopTheme p=selectedPalette();BG=prefColor("base",p.base);PANEL=prefColor("surface",p.surface);PANEL2=prefColor("surface2",p.surface2);LINE=prefColor("line",p.line);FG=prefColor("tx",p.text);MUTED=prefColor("mut",p.muted);ACCENT=prefColor("ac",p.accent);}
     private Color contrast(Color c){double l=(.299*c.getRed()+.587*c.getGreen()+.114*c.getBlue())/255;return l>.58?new Color(16,19,26):Color.WHITE;}
     private JPanel appearancePanel(){
         JPanel root=panel();root.add(label("المظهر — نفس ثيمات Mi_Max Ai على Android"));root.add(label("تغيير الثيم أو نمط التصميم يُحفظ محلياً ويُطبّق على الواجهة."));
@@ -244,12 +246,12 @@ public final class Main extends JFrame {
         styleBox.addActionListener(e->{designStyle=styleBox.getSelectedIndex()==1?"glass":styleBox.getSelectedIndex()==2?"material":"normal";prefs.put("style",designStyle);refreshAppearance();});
         root.add(label("نمط التصميم"));root.add(styleBox);
         root.add(label("الثيمات الأصلية"));
-        for(Palette p:THEMES){JButton b=new JButton((p.id.equals(themeId)?"✓  ":"")+p.name+" — "+p.desc);b.setHorizontalAlignment(SwingConstants.RIGHT);b.setBackground(p.surface2);b.setForeground(p.text);b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(p.accent,2),new EmptyBorder(12,14,12,14)));b.setFocusPainted(false);b.addActionListener(e->{themeId=p.id;prefs.put("theme",themeId);refreshAppearance();});root.add(b);}
+        for(DesktopTheme p:DesktopTheme.ALL){JButton b=new JButton((p.id.equals(themeId)?"✓  ":"")+p.nameAr+" — "+p.descAr);b.setHorizontalAlignment(SwingConstants.RIGHT);b.setBackground(p.surface2);b.setForeground(p.text);b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(p.accent,2),new EmptyBorder(12,14,12,14)));b.setFocusPainted(false);b.addActionListener(e->{themeId=p.id;prefs.put("theme",themeId);refreshAppearance();});root.add(b);}
         JCheckBox animate=new JCheckBox("حركة الخلفية السائلة",motion);animate.setOpaque(false);animate.setForeground(FG);animate.addActionListener(e->{motion=animate.isSelected();prefs.putBoolean("motion",motion);});root.add(animate);
-        root.add(label("الثيم الحالي: "+selectedPalette().name+" • النمط: "+(designStyle.equals("glass")?"زجاج سائل":designStyle.equals("material")?"Material 3":"عادي")));
+        root.add(label("الثيم الحالي: "+selectedPalette().nameAr+" • النمط: "+(designStyle.equals("glass")?"زجاج سائل":designStyle.equals("material")?"Material 3":"عادي")));
         return root;
     }
-    private void refreshAppearance(){setPalette();SwingUtilities.invokeLater(()->{getContentPane().setBackground(BG);repaint();dispose();new Main().setVisible(true);});}
+    private void refreshAppearance(){loadAppearance();SwingUtilities.invokeLater(()->{dispose();new Main().setVisible(true);});}
     private void applyAppearance(Component c){
         if(c instanceof JTabbedPane){c.setBackground(PANEL);c.setForeground(FG);}
         else if(c instanceof JTextArea){c.setBackground(PANEL2);c.setForeground(FG);((JTextArea)c).setCaretColor(ACCENT);}
