@@ -39,6 +39,7 @@ public final class LpTools {
         File dir = new File(context.getFilesDir(), "lp-tools/" + abi);
         if (!dir.exists() && !dir.mkdirs()) throw new IOException("تعذر إنشاء مجلد أدوات LP");
         File out = new File(dir, name);
+        if (out.exists() && !out.setWritable(true, true)) out.delete();
         String asset = "lp-tools/" + abi + "/" + name;
         try (InputStream in = context.getAssets().open(asset);
              FileOutputStream fos = new FileOutputStream(out, false)) {
@@ -51,9 +52,10 @@ public final class LpTools {
             throw new IOException("الأداة " + name + " غير مضمّنة في هذا الإصدار. يلزم تجهيز ملفات AOSP للـ " + abi + " ثم إعادة بناء APK.", e);
         }
         verifyElf(out, abi);
-        if (!out.setReadable(true, true) || !out.setExecutable(true, true)) {
+        if (!out.setReadable(true, true) || !out.setExecutable(true, true)
+                || !out.setWritable(false, true)) {
             out.delete();
-            throw new IOException("تعذر تجهيز صلاحية تشغيل أداة " + name);
+            throw new IOException("تعذر تجهيز صلاحيات أداة " + name);
         }
         return out;
     }
