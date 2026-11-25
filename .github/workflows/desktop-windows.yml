@@ -114,12 +114,12 @@ jobs:
           '@ | Set-Content "desktop/build/Launcher.cs" -Encoding UTF8
           $platform = "x64"
           $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-          if ("\${{ matrix.arch }}" -eq "x86") {
-            $platform = "x86"
-            $csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe"
-          }
+          if ("${{ matrix.arch }}" -eq "x86") { $platform = "x86" }
           if (-not (Test-Path $csc)) { throw "C# compiler not found: $csc" }
-          & $csc /nologo /target:winexe /platform:$platform /reference:"$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\System.Windows.Forms.dll" /out:"$pkg/MiMaxAi.exe" "desktop/build/Launcher.cs"
+          $launcherSource = Join-Path $PWD "desktop\build\Launcher.cs"
+          if (-not (Test-Path $launcherSource)) { throw "Launcher source was not created: $launcherSource" }
+          $formsRef = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\System.Windows.Forms.dll"
+          & $csc /nologo /target:winexe /platform:$platform /reference:$formsRef /out:"$pkg/MiMaxAi.exe" $launcherSource
           if ($LASTEXITCODE -ne 0) { throw "EXE launcher compilation failed" }
           Compress-Archive -Path "$pkg\*" -DestinationPath "desktop/build/${{ matrix.artifact }}.zip" -Force
 
