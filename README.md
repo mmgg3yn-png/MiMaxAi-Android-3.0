@@ -65,3 +65,8 @@
 - Terminal المحلي معزول داخل مجلد التطبيق ولا يملك صلاحيات root.
 - AI Agent يكتب في مساحة العمل الخاصة بالتطبيق فقط؛ لا يستطيع تعديل ملفات التطبيقات الأخرى أو تشغيل Gradle على الهاتف.
 - المتصفح يعتمد على Android System WebView المثبت في الجهاز.
+
+
+## Extension runtime stability
+
+JavaScript extensions run through the restricted host API with an instruction budget. Crash recovery tracks active script execution only, so opening a built-in app screen from a declarative extension does not leave a stale extension marked as the cause of a later crash. The extension API reports the version generated from the Android build configuration.

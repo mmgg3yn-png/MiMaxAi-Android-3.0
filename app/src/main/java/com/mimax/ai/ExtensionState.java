@@ -21,10 +21,14 @@ final class ExtensionState {
     static void recordCrash(Context c, Throwable error) {
         String id = prefs(c).getString("active_id", "");
         if (id == null || id.isEmpty()) return;
+        recordFailure(c, id, error);
+    }
+    static void recordFailure(Context c, String id, Throwable error) {
+        if (id == null || !id.matches("[A-Za-z0-9._-]{2,64}")) return;
         int failures = prefs(c).getInt("failures." + id, 0) + 1;
         prefs(c).edit().putInt("failures." + id, failures).putBoolean("enabled." + id, false)
                 .putString("recovery_id", id).remove("active_id").remove("active_at").commit();
-        appendLog(c, id, "تعطيل تلقائي بعد تعطل التطبيق: " + String.valueOf(error));
+        appendLog(c, id, "تم تعطيل الإضافة تلقائياً بعد فشل التنفيذ: " + String.valueOf(error));
     }
     static void appendLog(Context c, String id, String message) {
         try {

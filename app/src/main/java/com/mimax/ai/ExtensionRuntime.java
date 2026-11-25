@@ -85,23 +85,31 @@ final class ExtensionRuntime {
                 }
             }
         }
-        if (!extensionId.isEmpty()) ExtensionState.begin(activity, extensionId);
         JSONObject action = manifest.optJSONObject("action");
         String handler = action == null
                 ? manifest.optString("_file_action_handler", "")
                 : action.optString("handler", "");
         if ("javascript".equals(handler)) {
+            if (!extensionId.isEmpty()) ExtensionState.begin(activity, extensionId);
             try {
                 ExtensionScriptRuntime.execute(activity, extensionId, selectedFile);
-                ExtensionState.clearActive(activity);
                 ExtensionState.appendLog(activity, extensionId, "JavaScript extension completed.");
             } catch (Throwable error) {
+                ExtensionState.recordFailure(activity, extensionId, error);
+                Toast.makeText(activity, "فشل تشغيل الإضافة وتم تعطيلها تلقائياً.", Toast.LENGTH_LONG).show();
+                activity.runOnUiThread(() -> {
+                    if (!activity.isFinishing()) {
+                        activity.startActivity(new Intent(activity, ExtensionRecoveryActivity.class));
+                    }
+                });
+            } finally {
                 ExtensionState.clearActive(activity);
-                ExtensionState.appendLog(activity, extensionId, "Extension script failed: " + error);
-                Toast.makeText(activity, "فشل تشغيل الإضافة: " + error.getMessage(), Toast.LENGTH_LONG).show();
             }
             return;
         }
+        // Crash recovery is intentionally scoped to active JavaScript execution only.
+        // Declarative handlers only launch trusted app-owned screens. Do not mark them
+        // as executing extensions: a later unrelated app crash must not disable them.
         runHandler(activity, handler, selectedFile);
     }
 

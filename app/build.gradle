@@ -3,6 +3,10 @@ plugins {
 }
 
 android {
+    buildFeatures {
+        buildConfig true
+    }
+
     namespace 'com.mimax.ai'
     compileSdk 34
 

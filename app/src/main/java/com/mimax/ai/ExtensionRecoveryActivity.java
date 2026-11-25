@@ -1,6 +1,7 @@
 package com.mimax.ai;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -86,7 +87,13 @@ public class ExtensionRecoveryActivity extends Activity {
         Button back = new Button(this);
         back.setText("العودة إلى التطبيق");
         page.addView(back);
-        back.setOnClickListener(v -> { ExtensionState.clearRecovery(this); finish(); });
+        back.setOnClickListener(v -> {
+            ExtensionState.clearRecovery(this);
+            Intent home = new Intent(this, MainActivity.class);
+            home.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(home);
+            finish();
+        });
         setContentView(page);
     }
 

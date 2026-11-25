@@ -187,16 +187,21 @@ public class ExtensionManagerActivity extends Activity {
         }
         int minVersion = manifest.optInt("min_app_version", 30);
         int maxSdk = manifest.optInt("max_android_sdk", 1000);
-        if (minVersion > 32) throw new Exception("هذه الإضافة تتطلب إصدار تطبيق أحدث.");
+        if (minVersion > BuildConfig.VERSION_CODE) throw new Exception("هذه الإضافة تتطلب إصدار تطبيق أحدث.");
         if (android.os.Build.VERSION.SDK_INT > maxSdk) throw new Exception("الإضافة غير متوافقة مع إصدار Android الحالي.");
         File target = new File(root, id);
+        File backup = null;
         if (target.exists()) {
             File backups = new File(getFilesDir(), "extension_backups/" + id);
-            if (!backups.exists()) backups.mkdirs();
-            File backup = new File(backups, "backup-" + System.currentTimeMillis());
+            if (!backups.exists() && !backups.mkdirs()) throw new Exception("تعذر إنشاء مجلد النسخ الاحتياطية.");
+            backup = new File(backups, "backup-" + System.currentTimeMillis());
             if (!target.renameTo(backup)) throw new Exception("تعذر حفظ النسخة السابقة؛ أُلغي التحديث لحماية الإضافة.");
         }
-        if (!stage.renameTo(target)) throw new Exception("تعذر تثبيت الإضافة.");
+        if (!stage.renameTo(target)) {
+            if (backup != null && backup.exists() && !backup.renameTo(target))
+                throw new Exception("فشل التثبيت وتعذرت استعادة النسخة السابقة؛ النسخة محفوظة في " + backup.getAbsolutePath());
+            throw new Exception("تعذر تثبيت الإضافة؛ تمت استعادة النسخة السابقة إن وجدت.");
+        }
         ExtensionState.setEnabled(this, id, true);
         ExtensionState.appendLog(this, id, "تم تثبيت/تحديث الإصدار " + version);
         toast("تم تثبيت " + name + " (" + version + ") مع الاحتفاظ بالنسخة السابقة إن وجدت.");

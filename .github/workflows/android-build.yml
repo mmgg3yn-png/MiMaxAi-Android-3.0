@@ -57,8 +57,15 @@ jobs:
         run: |
           gradle --no-daemon -p local-runner :app:assembleHtmlRelease :app:assemblePythonRelease
           mkdir -p app/src/main/assets
-          cp local-runner/app/build/outputs/apk/html/release/app-html-release.apk app/src/main/assets/local_runner_html.apk
-          cp local-runner/app/build/outputs/apk/python/release/app-python-release.apk app/src/main/assets/local_runner_python.apk
+          HTML_APK="$(find local-runner/app/build/outputs/apk -type f -iname '*html*release*.apk' -print -quit)"
+          PYTHON_APK="$(find local-runner/app/build/outputs/apk -type f -iname '*python*release*.apk' -print -quit)"
+          if [ -z "$HTML_APK" ] || [ -z "$PYTHON_APK" ]; then
+            echo "Local runner APK outputs were not found:"
+            find local-runner/app/build/outputs/apk -type f -print || true
+            exit 1
+          fi
+          cp "$HTML_APK" app/src/main/assets/local_runner_html.apk
+          cp "$PYTHON_APK" app/src/main/assets/local_runner_python.apk
 
       - name: Build Debug APK
         run: gradle --no-daemon :app:assembleDebug
