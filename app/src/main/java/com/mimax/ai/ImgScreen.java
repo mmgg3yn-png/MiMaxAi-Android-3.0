@@ -181,7 +181,7 @@ class ImgScreen {
             final Io.Cancel cancel = new Io.Cancel();
             a.runBgP("Sparse → Raw → LP partitions", cancel, progress -> {
                 if (required > 0) Io.checkSpace(img.getAbsoluteFile().getParentFile(), required);
-                if (info.sparse) Sparse.toRaw(img, raw, null, cancel);
+                if (info.sparse) Sparse.toRaw(img, raw, progress, cancel);
                 if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الناتج: " + dir);
                 try (Vsrc.FileV source = new Vsrc.FileV(raw)) {
                     Lp.Meta parsed = Lp.read(source);
