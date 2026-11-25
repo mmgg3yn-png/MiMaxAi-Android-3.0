@@ -78,7 +78,9 @@ dump = Path(sys.argv[1]).parent / "partition_tools" / "lpdump.cc"
 d = dump.read_text()
 d = d.replace("#ifdef __ANDROID__\n#include <cutils/android_get_control_file.h>\n#include <fs_mgr.h>\n#endif",
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\n#include <cutils/android_get_control_file.h>\n#include <fs_mgr.h>\n#endif", 1)
-# Keep the liblp namespace available: its public metadata API is still used for image files.\nif "using namespace android::fs_mgr;" not in d:\n    raise SystemExit("Expected liblp namespace import missing")
+# Keep the liblp namespace available: its public metadata API is still used for image files.
+if "using namespace android::fs_mgr;" not in d:
+    raise SystemExit("Expected liblp namespace import missing")
 d = d.replace("#ifdef __ANDROID__\nstatic DynamicPartitionsDeviceInfoProto::Partition* FindPartition(",
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\nstatic DynamicPartitionsDeviceInfoProto::Partition* FindPartition(", 1)
 d = d.replace("#ifdef __ANDROID__\n    if (!MergeFsUsage(&proto, cerr)) {",
@@ -89,13 +91,12 @@ d = d.replace("#ifdef __ANDROID__\n        super_path = GetSuperPartitionName(sl
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\n        super_path = GetSuperPartitionName(slot);", 1)
 d = d.replace("#ifdef __ANDROID__\n    uint32_t num_slots = current_slot_suffix.empty() ? 1 : 2;",
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\n    uint32_t num_slots = current_slot_suffix.empty() ? 1 : 2;", 1)
-// This wrapper is unused by the standalone image-file CLI. It depends on
-// device-only PartitionOpener and android_get_control_file APIs unavailable
-// in the public NDK. ReadMetadata() supports ordinary image paths directly.
-d, removed = re.subn(r"class FileOrBlockDeviceOpener final : public PartitionOpener \\{.*?\\n\\};\\n", "", d, count=1, flags=re.S)
+# This wrapper is unused by the standalone image-file CLI. It depends on
+# device-only PartitionOpener and android_get_control_file APIs unavailable
+# in the public NDK. ReadMetadata() supports ordinary image paths directly.
+d, removed = re.subn(r"class FileOrBlockDeviceOpener final : public PartitionOpener [{].*?[\n][}];[\n]", "", d, count=1, flags=re.S)
 if removed != 1:
     raise SystemExit("Could not remove unused device-only FileOrBlockDeviceOpener")
-
 d = d.replace("if (!override_super_name) {\n                super_path = GetSuperPartitionName(i);",
               "if (!override_super_name) {\n                super_path = GetSuperPartitionName(i);", 1)
 if d == dump.read_text() or d.count("MIMAX_LP_TOOLS_IMAGE_ONLY") < 6:
