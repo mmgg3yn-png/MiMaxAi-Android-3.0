@@ -83,7 +83,7 @@ public class DeveloperStudioActivity extends Activity {
 
     private void showHome() {
         LinearLayout root = root("Mi_Max Ai • Developer Studio");
-        root.addView(label("قوالب مشاريع محلية على الهاتف. HTML يدعم المعاينة دون إنترنت. Python يحفظ ملفات المشروع ومتطلباته.", 13, 0xFF536273));
+        root.addView(label("قوالب HTML وPython مضمّنة داخل التطبيق؛ أنشئ مشروعاً وحرّره وعاينه محلياً دون إنترنت. تجميع APK محلياً غير متاح حالياً.", 13, 0xFF536273));
         LinearLayout actions = new LinearLayout(this);
         actions.addView(button("مشروع HTML جديد", () -> createProject(true)), new LinearLayout.LayoutParams(0, -2, 1));
         actions.addView(button("مشروع Python جديد", () -> createProject(false)), new LinearLayout.LayoutParams(0, -2, 1));
@@ -111,7 +111,7 @@ public class DeveloperStudioActivity extends Activity {
         }
         if (found == 0) list.addView(label("لا توجد مشاريع بعد. أنشئ مشروع HTML أو Python.", 13, 0xFF64748B));
         scroll.addView(list); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        status = label("المشاريع والمعاينة محلية. بناء APK متاح عبر GitHub Actions بعد إدخال رمز وصول للمستودع؛ لا يوجد بناء محلي دون إنترنت.", 12, 0xFF536273);
+        status = label("القوالب والتحرير ومعاينة HTML محلية. بناء APK النهائي حالياً عبر GitHub Actions فقط؛ لا يوجد مترجم APK محلي مدمج بعد.", 12, 0xFF536273);
         root.addView(status);
         root.addView(button("العودة", this::finish));
         setContentView(root);
@@ -125,36 +125,40 @@ public class DeveloperStudioActivity extends Activity {
     }
 
     private void createProject(boolean html) {
-        EditText name = new EditText(this);
-        name.setSingleLine(true); name.setHint("اسم المشروع");
-        new AlertDialog.Builder(this).setTitle(html ? "مشروع HTML جديد" : "مشروع Python جديد")
-            .setView(name).setNegativeButton("إلغاء", null)
-            .setPositiveButton("إنشاء", (d, w) -> {
-                String raw = name.getText().toString().trim().toLowerCase(Locale.ROOT);
-                String safe = raw.replaceAll("[^a-z0-9_-]", "_");
-                if (safe.length() < 2) { toast("اكتب اسماً صالحاً من حرفين على الأقل"); return; }
-                File dir = new File(workspace, safe);
-                if (dir.exists()) { toast("يوجد مشروع بهذا الاسم"); return; }
-                if (!dir.mkdirs()) { toast("تعذر إنشاء المشروع"); return; }
-                try {
-                    if (html) {
-                        new File(dir, "assets").mkdirs();
-                        write(new File(dir, "main.html"), defaultHtml());
-                    } else {
-                        write(new File(dir, "main.py"), defaultPython());
-                        write(new File(dir, "requirements.txt"), "# ضع أسماء المكتبات هنا، مكتبة في كل سطر. مثال: requests\\n");
-                    }
-                    openProject(dir, html);
-                } catch (Exception e) { toast("فشل إنشاء المشروع: " + e.getMessage()); }
+        final String[] ids = html ? new String[]{"html/basic","html/offline","html/multipage"} : new String[]{"python/kivy","python/canvas"};
+        final String[] labels = html ? new String[]{"HTML أساسي","HTML يعمل دون إنترنت","موقع متعدد الصفحات"} : new String[]{"Python + Kivy","Python + Kivy Canvas"};
+        new AlertDialog.Builder(this).setTitle(html ? "اختر قالب HTML" : "اختر قالب Python")
+            .setItems(labels,(d,w)->promptProjectName(html,ids[w])).setNegativeButton("إلغاء",null).show();
+    }
+
+    private void promptProjectName(boolean html, String templateId) {
+        EditText name=new EditText(this); name.setSingleLine(true); name.setHint("اسم المشروع");
+        new AlertDialog.Builder(this).setTitle("اسم المشروع").setView(name).setNegativeButton("إلغاء",null)
+            .setPositiveButton("إنشاء من القالب",(d,w)->{
+                String raw=name.getText().toString().trim().toLowerCase(Locale.ROOT);
+                String safe=raw.replaceAll("[^a-z0-9_-]","_");
+                if(safe.length()<2){toast("اكتب اسماً صالحاً من حرفين على الأقل");return;}
+                File dir=new File(workspace,safe);
+                if(dir.exists()){toast("يوجد مشروع بهذا الاسم");return;}
+                if(!dir.mkdirs()){toast("تعذر إنشاء المشروع");return;}
+                try{
+                    copyAssetTree("project-templates/"+templateId,dir);
+                    if(!new File(dir,html?"main.html":"main.py").isFile()) throw new Exception("ملف البداية غير موجود في القالب");
+                    openProject(dir,html);
+                }catch(Exception ex){deleteTree(dir);toast("فشل إنشاء المشروع: "+ex.getMessage());}
             }).show();
     }
 
-    private String defaultHtml() {
-        return "<!doctype html>\n<html lang=\"ar\"><head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>My App</title><style>body{font-family:sans-serif;background:#101827;color:#fff;padding:24px}button{padding:12px 18px;border:0;border-radius:12px;background:#60a5fa}</style></head><body dir=\"rtl\"><h1>تطبيقي الأول</h1><p>عدّل هذا الملف من Mi_Max Ai.</p><button onclick=\"document.querySelector('p').textContent='JavaScript يعمل!'\">جرّب</button></body></html>";
-    }
-
-    private String defaultPython() {
-        return "from kivy.app import App\nfrom kivy.uix.boxlayout import BoxLayout\nfrom kivy.uix.label import Label\nfrom kivy.uix.button import Button\n\nclass MyApp(App):\n    def build(self):\n        root = BoxLayout(orientation='vertical', padding=24, spacing=16)\n        root.add_widget(Label(text='My Python Android App'))\n        root.add_widget(Button(text='Hello', on_release=lambda *_: print('Hello from Kivy')))\n        return root\n\nMyApp().run()\n";
+    private void copyAssetTree(String assetPath, File destination) throws Exception {
+        String[] children=getAssets().list(assetPath);
+        if(children!=null && children.length>0){
+            if(!destination.exists()&&!destination.mkdirs()) throw new Exception("تعذر إنشاء مجلد");
+            for(String child:children) copyAssetTree(assetPath+"/"+child,new File(destination,child));
+            return;
+        }
+        try(InputStream in=getAssets().open(assetPath);FileOutputStream out=new FileOutputStream(destination)){
+            byte[] buffer=new byte[8192];int n;while((n=in.read(buffer))!=-1)out.write(buffer,0,n);
+        }
     }
 
     private void openProject(File dir, boolean html) {
@@ -184,7 +188,7 @@ public class DeveloperStudioActivity extends Activity {
             root.addView(button("ملفات المشروع / إضافة ملف", this::showProjectFiles));
             if (!html) root.addView(button("تعديل requirements.txt", this::editRequirements));
             if (html) root.addView(button("معاينة HTML دون إنترنت", this::previewHtml));
-            root.addView(button("بناء APK عبر GitHub Actions", this::showCloudBuildDialog));
+            root.addView(button("بناء APK سحابياً (للمشاريع الكبيرة)", this::showCloudBuildDialog));
             root.addView(button("حالة بناء APK", this::showOfflineBuildStatus));
             root.addView(button("العودة للمشاريع", this::showHome));
             setContentView(root);
@@ -217,7 +221,7 @@ public class DeveloperStudioActivity extends Activity {
 
     private void showOfflineBuildStatus() {
         new AlertDialog.Builder(this).setTitle("حالة محركات البناء")
-            .setMessage("تمت إضافة مسار بناء HTML عبر Android WebView/Gradle، ومسار Python عبر Buildozer وpython-for-Android. إدارة الملفات والمعاينة محليتان، أما تجميع APK فيتم على GitHub Actions بعد رفع المشروع برمز وصول GitHub بصلاحية Contents: Read and write. لا يوجد محرك بناء محلي أو وضع بناء دون إنترنت. تطبيق Python يحتاج واجهة Kivy، وقد تفشل مكتبات native غير المدعومة بوصفات Android.")
+            .setMessage("قوالب HTML وPython مضمّنة داخل التطبيق، ويمكن إنشاء المشاريع وتعديلها ومعاينة HTML دون إنترنت. تجميع APK محلياً غير منفّذ حالياً؛ البناء النهائي يتم عبر GitHub Actions للمشاريع التي تحتاج بيئة Linux وAndroid SDK. Python يستخدم Kivy وpython-for-Android، وقد لا تعمل مكتبات native التي لا تتوفر لها وصفات Android.")
             .setPositiveButton("حسناً", null).show();
     }
 

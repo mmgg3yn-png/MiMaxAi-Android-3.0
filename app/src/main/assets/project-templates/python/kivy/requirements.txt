@@ -1,0 +1,1 @@
+# Add extra Python packages, one per line. Kivy is added by the Android build workflow.
