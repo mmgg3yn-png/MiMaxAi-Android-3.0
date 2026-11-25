@@ -243,7 +243,7 @@ public final class Main extends JFrame {
         JPanel root=panel();root.add(label("المظهر — نفس ثيمات Mi_Max Ai على Android"));root.add(label("تغيير الثيم أو نمط التصميم يُحفظ محلياً ويُطبّق على الواجهة."));
         JComboBox<String> styleBox=new JComboBox<>(new String[]{"عادي","زجاج سائل","Material 3"});
         styleBox.setSelectedIndex(designStyle.equals("glass")?1:designStyle.equals("material")?2:0);
-        styleBox.addActionListener(e->{designStyle=styleBox.getSelectedIndex()==1?"glass":styleBox.getSelectedIndex()==2?"material":"normal";prefs.put("style",designStyle);refreshAppearance();});
+        styleBox.addActionListener(e->{designStyle=styleBox.getSelectedIndex()==1?"glass":styleBox.getSelectedIndex()==2?"material":"normal";prefs.putInt("style",styleBox.getSelectedIndex());refreshAppearance();});
         root.add(label("نمط التصميم"));root.add(styleBox);
         root.add(label("الثيمات الأصلية"));
         for(DesktopTheme p:DesktopTheme.ALL){JButton b=new JButton((p.id.equals(themeId)?"✓  ":"")+p.nameAr+" — "+p.descAr);b.setHorizontalAlignment(SwingConstants.RIGHT);b.setBackground(p.surface2);b.setForeground(p.text);b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(p.accent,2),new EmptyBorder(12,14,12,14)));b.setFocusPainted(false);b.addActionListener(e->{themeId=p.id;prefs.put("theme",themeId);refreshAppearance();});root.add(b);}
