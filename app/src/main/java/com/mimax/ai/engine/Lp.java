@@ -28,7 +28,7 @@ public final class Lp {
 
     public static class Group { public String name; public long maxSize; public int flags; }
 
-    public static class Device { public String name; public long firstLogicalSector, size; public int alignment, alignmentOffset, flags; }
+    public static class Device { public String name; public long firstLogicalSector, size, alignment, alignmentOffset; public int flags; }
 
     public static class Meta {
         public int major, minor, slotCount, logicalBlockSize, headerFlags;
@@ -126,8 +126,8 @@ public final class Lp {
             int o = (int) (m.bo + i * m.be);
             Device d = new Device();
             d.firstLogicalSector = T.getLong(o);
-            d.alignment = T.getInt(o + 8);
-            d.alignmentOffset = T.getInt(o + 12);
+            d.alignment = T.getInt(o + 8) & 0xFFFFFFFFL;
+            d.alignmentOffset = T.getInt(o + 12) & 0xFFFFFFFFL;
             d.size = T.getLong(o + 16);
             d.name = Io.cstr(tables, o + 24, 36);
             d.flags = T.getInt(o + 60);
