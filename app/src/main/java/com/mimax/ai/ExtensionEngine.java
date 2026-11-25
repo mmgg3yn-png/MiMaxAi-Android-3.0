@@ -127,7 +127,7 @@ public final class ExtensionEngine {
     public void setEnabled(String id, boolean enabled) throws Exception {
         Item item=find(id); if(item==null) throw new Exception("الإضافة غير موجودة");
         android.content.SharedPreferences prefs=app.getSharedPreferences("mm_extensions",0);
-        if(enabled) {
+        if(enabled && "theme".equals(item.manifest.optString("type","theme"))) {
             saveThemeSnapshot(prefs);
             for(Item other:list()) if(!other.id.equals(id) && "theme".equals(other.manifest.optString("type","theme")))
                 prefs.edit().putBoolean("enabled_"+other.id,false).apply();
