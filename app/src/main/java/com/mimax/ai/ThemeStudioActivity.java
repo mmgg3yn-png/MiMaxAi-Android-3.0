@@ -49,7 +49,8 @@ public class ThemeStudioActivity extends Activity {
         root.addView(button("إنشاء ثيم بالذكاء الاصطناعي",this::createAi));
         status=text("جاهز",12,0xFF536273);root.addView(status);
         ScrollView sc=new ScrollView(this);list=new LinearLayout(this);list.setOrientation(LinearLayout.VERTICAL);sc.addView(list);root.addView(sc,new LinearLayout.LayoutParams(-1,0,1));
-        root.addView(button("العودة",this::finish));setContentView(root);refresh();
+        root.addView(button("العودة",this::finish));setContentView(root);
+        AppPalette.apply(this, root);refresh();
     }
 
     private void pickImport(){
