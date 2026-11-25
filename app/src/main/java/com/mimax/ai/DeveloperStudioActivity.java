@@ -47,7 +47,8 @@ public class DeveloperStudioActivity extends Activity {
     private File currentProject;
     private File currentEditingFile;
     private boolean currentHtml;
-    private static final int IMPORT_PROJECT_FILE = 931;\n    private static final int PICK_APP_ICON = 932;\n    private File selectedProjectIcon;
+    private static final int IMPORT_PROJECT_FILE = 931;
+    private static final int PICK_APP_ICON = 932;\n    private File selectedProjectIcon;
 
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_LONG).show(); }
