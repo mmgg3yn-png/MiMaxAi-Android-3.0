@@ -83,7 +83,7 @@ public class DeveloperStudioActivity extends Activity {
 
     private void showHome() {
         LinearLayout root = root("Mi_Max Ai • Developer Studio");
-        root.addView(label("قوالب HTML وPython مضمّنة داخل التطبيق؛ أنشئ مشروعاً وحرّره وعاينه محلياً دون إنترنت. تجميع APK محلياً غير متاح حالياً.", 13, 0xFF536273));
+        root.addView(label("أنشئ مشاريع HTML وPython وحرّرها وعاينها محلياً. تحويل المشاريع إلى APK يتم على الهاتف؛ Python يستخدم Pyodide ويحتاج الإنترنت لتحميل بيئة التشغيل والمكتبات أول مرة.", 13, 0xFF536273));
         LinearLayout actions = new LinearLayout(this);
         actions.addView(button("مشروع HTML جديد", () -> createProject(true)), new LinearLayout.LayoutParams(0, -2, 1));
         actions.addView(button("مشروع Python جديد", () -> createProject(false)), new LinearLayout.LayoutParams(0, -2, 1));
@@ -111,7 +111,7 @@ public class DeveloperStudioActivity extends Activity {
         }
         if (found == 0) list.addView(label("لا توجد مشاريع بعد. أنشئ مشروع HTML أو Python.", 13, 0xFF64748B));
         scroll.addView(list); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        status = label("القوالب والتحرير ومعاينة HTML محلية. بناء APK النهائي حالياً عبر GitHub Actions فقط؛ لا يوجد مترجم APK محلي مدمج بعد.", 12, 0xFF536273);
+        status = label("HTML: بناء APK محلي. Python: تشغيل عبر Pyodide وبناء APK محلي. Kotlin/Java: GitHub Actions.", 12, 0xFF536273);
         root.addView(status);
         root.addView(button("العودة", this::finish));
         setContentView(root);
@@ -188,8 +188,9 @@ public class DeveloperStudioActivity extends Activity {
             root.addView(button("ملفات المشروع / إضافة ملف", this::showProjectFiles));
             if (!html) root.addView(button("تعديل requirements.txt", this::editRequirements));
             if (html) root.addView(button("معاينة HTML دون إنترنت", this::previewHtml));
-            root.addView(button("بناء APK سحابياً (للمشاريع الكبيرة)", this::showCloudBuildDialog));
-            root.addView(button("حالة بناء APK", this::showOfflineBuildStatus));
+            root.addView(button("تحويل المشروع إلى APK محلياً", this::buildLocalApk));
+            if (!html) root.addView(button("معلومات تشغيل Python والمكتبات", this::showPythonRuntimeInfo));
+            root.addView(button("حالة محركات البناء", this::showOfflineBuildStatus));
             root.addView(button("العودة للمشاريع", this::showHome));
             setContentView(root);
         AppPalette.apply(this, root);
@@ -219,9 +220,42 @@ public class DeveloperStudioActivity extends Activity {
         AppPalette.apply(this, root);
     }
 
+    private void buildLocalApk() {
+        if (currentProject == null) { toast("افتح مشروعاً أولاً"); return; }
+        saveSource();
+        final File project = currentProject;
+        final boolean html = currentHtml;
+        statusUpdate("جاري تجهيز APK محلياً على الهاتف...");
+        new Thread(() -> {
+            try {
+                File apk = LocalApkBuilder.build(this, project, html, project.getName());
+                runOnUiThread(() -> {
+                    pendingApk = apk;
+                    Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    save.addCategory(Intent.CATEGORY_OPENABLE);
+                    save.setType("application/vnd.android.package-archive");
+                    save.putExtra(Intent.EXTRA_TITLE, apk.getName());
+                    statusUpdate("اكتمل بناء APK محلياً. اختر مكان حفظه.");
+                    startActivityForResult(save, SAVE_APK);
+                });
+            } catch (Exception e) {
+                runOnUiThread(() -> {
+                    statusUpdate("فشل البناء المحلي: " + e.getMessage());
+                    toast("فشل بناء APK محلياً: " + e.getMessage());
+                });
+            }
+        }).start();
+    }
+
+    private void showPythonRuntimeInfo() {
+        new AlertDialog.Builder(this).setTitle("Python المحلي داخل APK")
+            .setMessage("يُضمّن ملف main.py داخل التطبيق الناتج ويُشغّل باستخدام Pyodide 0.27.7 داخل WebView. أول تشغيل يحتاج الإنترنت لتنزيل بيئة Python، وتُنزّل المكتبات من PyPI عبر micropip. ليست كل مكتبات pip متوافقة: المكتبات التي تحتاج امتدادات C/Native أو واجهة Kivy/SDL لا تعمل بهذا المحرك. هذا مسار Python محلي مستقل عن GitHub Actions.")
+            .setPositiveButton("حسناً", null).show();
+    }
+
     private void showOfflineBuildStatus() {
         new AlertDialog.Builder(this).setTitle("حالة محركات البناء")
-            .setMessage("قوالب HTML وPython مضمّنة داخل التطبيق، ويمكن إنشاء المشاريع وتعديلها ومعاينة HTML دون إنترنت. تجميع APK محلياً غير منفّذ حالياً؛ البناء النهائي يتم عبر GitHub Actions للمشاريع التي تحتاج بيئة Linux وAndroid SDK. Python يستخدم Kivy وpython-for-Android، وقد لا تعمل مكتبات native التي لا تتوفر لها وصفات Android.")
+            .setMessage("HTML: تُنسخ ملفات المشروع داخل قالب WebView ويُوقّع APK على الهاتف. Python: يُضمّن main.py ويعمل عبر Pyodide؛ تنزيل بيئة التشغيل والمكتبات يحتاج الإنترنت. ملفات Kotlin وJava الأصلية تبقى للبناء عبر GitHub Actions. قوالب APK العامة تستخدم معرف حزمة ثابت لكل نوع، لذلك لا يمكن تثبيت أكثر من مشروع مولّد من النوع نفسه بجانب الآخر حالياً.")
             .setPositiveButton("حسناً", null).show();
     }
 
