@@ -105,7 +105,8 @@ public final class LocalApkBuilder {
 
             JSONObject config = new JSONObject();
             config.put("type", html ? "html" : "python");
-            config.put("title", title == null ? project.getName() : title);\n            config.put("package", packageName);
+            config.put("title", title == null ? project.getName() : title);
+            config.put("package", packageName);
             addBytes(output, "assets/app-config.json", config.toString().getBytes(StandardCharsets.UTF_8));
 
             if (iconFile != null && iconFile.isFile()) addFile(output, "assets/app-icon.png", iconFile);
