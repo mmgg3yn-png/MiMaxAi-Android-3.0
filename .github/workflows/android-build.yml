@@ -51,6 +51,8 @@ jobs:
           javac -encoding UTF-8 -cp "$ANDROID_JAR" -d build/logo-bin-tests \
             app/src/main/java/com/mimax/ai/engine/Io.java \
             app/src/main/java/com/mimax/ai/engine/LogoBin.java \
+            app/src/main/java/com/mimax/ai/engine/Archives.java \
+            app/src/main/java/com/mimax/ai/engine/ArchivePack.java \
             engine-tests/LogoBinTest.java
           java -cp "build/logo-bin-tests:$ANDROID_JAR" LogoBinTest build/logo-bin-tests/work
 
