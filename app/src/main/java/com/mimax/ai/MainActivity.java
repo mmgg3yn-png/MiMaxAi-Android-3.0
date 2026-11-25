@@ -211,6 +211,30 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onResume() {
+        super.onResume();
+        refreshHomeWidgets();
+    }
+
+    private void refreshHomeWidgets() {
+        try {
+            android.appwidget.AppWidgetManager manager = android.appwidget.AppWidgetManager.getInstance(this);
+            android.content.ComponentName search = new android.content.ComponentName(this, SearchWidgetProvider.class);
+            android.content.ComponentName ask = new android.content.ComponentName(this, AskAiWidgetProvider.class);
+            int[] searchIds = manager.getAppWidgetIds(search);
+            int[] askIds = manager.getAppWidgetIds(ask);
+            Intent si = new Intent(this, SearchWidgetProvider.class);
+            si.setAction(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+            si.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, searchIds);
+            sendBroadcast(si);
+            Intent ai = new Intent(this, AskAiWidgetProvider.class);
+            ai.setAction(android.appwidget.AppWidgetManager.ACTION_APPWIDGET_UPDATE);
+            ai.putExtra(android.appwidget.AppWidgetManager.EXTRA_APPWIDGET_IDS, askIds);
+            sendBroadcast(ai);
+        } catch (Exception ignored) { }
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
         if (tts != null) tts.shutdown();
