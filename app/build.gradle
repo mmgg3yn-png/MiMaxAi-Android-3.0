@@ -28,4 +28,6 @@ android {
 
 
 dependencies {
+    // Pure-Java APK signer used by the on-device HTML/Python project exporter.
+    implementation 'com.android.tools.build:apksig:8.3.0'
 }
