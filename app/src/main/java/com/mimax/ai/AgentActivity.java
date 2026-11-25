@@ -160,6 +160,8 @@ public class AgentActivity extends Activity {
         back.setAllCaps(false);
         root.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
         back.setOnClickListener(v -> finish());
+        setContentView(root);
+        AppPalette.apply(this, root);
     }
 
     private void pickFile() {
