@@ -137,17 +137,39 @@ class Handler(BaseHTTPRequestHandler):
     def authorized(self):
         return secrets.compare_digest(self.headers.get("X-MiMax-Token", ""), self.server.token)
     def do_GET(self):
-        if self.path != "/status":
-            return self.send_json(404, {"ok": False, "error": "Not found"})
         if not self.authorized():
             return self.send_json(401, {"ok": False, "error": "Invalid token"})
-        self.send_json(200, {
-            "ok": True, "name": "Mi_Max Ai PC Bridge",
-            "adb": bool(shutil.which("adb")), "fastboot": bool(shutil.which("fastboot")),
-            "workspace": str(ROOT), "platform": os.name
-        })
+        if self.path == "/status":
+            return self.send_json(200, {
+                "ok": True, "name": "Mi_Max Ai PC Bridge",
+                "adb": bool(shutil.which("adb")), "fastboot": bool(shutil.which("fastboot")),
+                "workspace": str(ROOT), "platform": os.name,
+                "gradle": bool(shutil.which("gradle")), "buildozer": bool(shutil.which("buildozer"))
+            })
+        if self.path in ("/download/html-apk", "/download/python-apk"):
+            try:
+                if self.path.endswith("html-apk"):
+                    target = ROOT / "agent_upload" / "HTML_APK_BUILD" / "app" / "build" / "outputs" / "apk" / "debug" / "app-debug.apk"
+                else:
+                    project = ROOT / "agent_upload" / "PYTHON_APK_BUILD"
+                    candidates = sorted((project / "bin").glob("*.apk"), key=lambda f: f.stat().st_mtime, reverse=True) if (project / "bin").is_dir() else []
+                    target = candidates[0] if candidates else project / "missing.apk"
+                target = target.resolve()
+                if ROOT.resolve() not in target.parents or not target.is_file():
+                    return self.send_json(404, {"ok": False, "error": "APK not found. Build it first."})
+                self.send_response(200)
+                self.send_header("Content-Type", "application/vnd.android.package-archive")
+                self.send_header("Content-Length", str(target.stat().st_size))
+                self.send_header("Content-Disposition", 'attachment; filename="MiMaxAi-generated.apk"')
+                self.end_headers()
+                with open(target, "rb") as apk:
+                    shutil.copyfileobj(apk, self.wfile)
+                return
+            except Exception as exc:
+                return self.send_json(500, {"ok": False, "error": str(exc)})
+        return self.send_json(404, {"ok": False, "error": "Not found"})
     def do_POST(self):
-        if self.path not in ("/run", "/upload"):
+        if self.path not in ("/run", "/upload", "/python-build"):
             return self.send_json(404, {"ok": False, "error": "Not found"})
         if not self.authorized():
             return self.send_json(401, {"ok": False, "error": "Invalid token"})
@@ -155,6 +177,21 @@ class Handler(BaseHTTPRequestHandler):
             n = int(self.headers.get("Content-Length", "0"))
             if n < 1:
                 raise ValueError("Empty request.")
+            if self.path == "/python-build":
+                if n > 100000:
+                    raise ValueError("Invalid build request.")
+                self.rfile.read(n)
+                if os.name != "posix":
+                    raise RuntimeError("Python APK building requires a Linux PC.")
+                exe = shutil.which("buildozer")
+                project = (ROOT / "agent_upload" / "PYTHON_APK_BUILD").resolve()
+                if ROOT.resolve() not in project.parents or not (project / "buildozer.spec").is_file() or not (project / "main.py").is_file():
+                    raise ValueError("Upload a valid Python/Kivy project first.")
+                if not exe:
+                    raise RuntimeError("Buildozer is not installed. Install Buildozer and Android SDK/NDK on this Linux PC.")
+                proc = subprocess.run([exe, "android", "debug"], cwd=str(project), capture_output=True, text=True, timeout=1800)
+                output = (proc.stdout or "") + "\\n" + (proc.stderr or "")
+                return self.send_json(200 if proc.returncode == 0 else 400, {"ok": proc.returncode == 0, "exit_code": proc.returncode, "output": output[-30000:]})
             if self.path == "/upload":
                 if n > 100 * 1024 * 1024:
                     raise ValueError("ZIP upload limit is 100MB.")
