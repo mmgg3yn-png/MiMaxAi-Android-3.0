@@ -48,6 +48,8 @@ public class DeveloperStudioActivity extends Activity {
     private File currentEditingFile;
     private boolean currentHtml;
     private static final int IMPORT_PROJECT_FILE = 931;
+    private static final int PICK_APP_ICON = 932;
+    private File selectedProjectIcon;
 
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_LONG).show(); }
@@ -57,6 +59,8 @@ public class DeveloperStudioActivity extends Activity {
     }
     private Button button(String s, Runnable action) {
         Button b = new Button(this); b.setText(s); b.setAllCaps(false);
+        b.setTextSize(11); b.setMinHeight(dp(34)); b.setMinimumHeight(dp(34));
+        b.setPadding(dp(4),0,dp(4),0);
         b.setOnClickListener(v -> action.run()); return b;
     }
 
@@ -83,7 +87,7 @@ public class DeveloperStudioActivity extends Activity {
 
     private void showHome() {
         LinearLayout root = root("Mi_Max Ai • Developer Studio");
-        root.addView(label("قوالب HTML وPython مضمّنة داخل التطبيق؛ أنشئ مشروعاً وحرّره وعاينه محلياً دون إنترنت. تجميع APK محلياً غير متاح حالياً.", 13, 0xFF536273));
+        root.addView(label("أنشئ مشاريع HTML وPython وحرّرها وعاينها محلياً. تحويل المشاريع إلى APK يتم على الهاتف؛ Python يستخدم Pyodide ويحتاج الإنترنت لتحميل بيئة التشغيل والمكتبات أول مرة.", 13, 0xFF536273));
         LinearLayout actions = new LinearLayout(this);
         actions.addView(button("مشروع HTML جديد", () -> createProject(true)), new LinearLayout.LayoutParams(0, -2, 1));
         actions.addView(button("مشروع Python جديد", () -> createProject(false)), new LinearLayout.LayoutParams(0, -2, 1));
@@ -111,7 +115,7 @@ public class DeveloperStudioActivity extends Activity {
         }
         if (found == 0) list.addView(label("لا توجد مشاريع بعد. أنشئ مشروع HTML أو Python.", 13, 0xFF64748B));
         scroll.addView(list); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        status = label("القوالب والتحرير ومعاينة HTML محلية. بناء APK النهائي حالياً عبر GitHub Actions فقط؛ لا يوجد مترجم APK محلي مدمج بعد.", 12, 0xFF536273);
+        status = label("HTML: بناء APK محلي. Python: تشغيل عبر Pyodide وبناء APK محلي. Kotlin/Java: GitHub Actions.", 12, 0xFF536273);
         root.addView(status);
         root.addView(button("العودة", this::finish));
         setContentView(root);
@@ -126,7 +130,7 @@ public class DeveloperStudioActivity extends Activity {
 
     private void createProject(boolean html) {
         final String[] ids = html ? new String[]{"html/basic","html/offline","html/multipage"} : new String[]{"python/kivy","python/canvas"};
-        final String[] labels = html ? new String[]{"HTML أساسي","HTML يعمل دون إنترنت","موقع متعدد الصفحات"} : new String[]{"Python + Kivy","Python + Kivy Canvas"};
+        final String[] labels = html ? new String[]{"HTML أساسي","HTML يعمل دون إنترنت","موقع متعدد الصفحات"} : new String[]{"Python محلي (Pyodide)","Python + Canvas"};
         new AlertDialog.Builder(this).setTitle(html ? "اختر قالب HTML" : "اختر قالب Python")
             .setItems(labels,(d,w)->promptProjectName(html,ids[w])).setNegativeButton("إلغاء",null).show();
     }
@@ -184,16 +188,29 @@ public class DeveloperStudioActivity extends Activity {
             editor.setPadding(dp(10), dp(10), dp(10), dp(10));
             ScrollView scroll = new ScrollView(this); scroll.addView(editor);
             root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-            root.addView(button("حفظ الملف", this::saveSource));
-            root.addView(button("ملفات المشروع / إضافة ملف", this::showProjectFiles));
-            if (!html) root.addView(button("تعديل requirements.txt", this::editRequirements));
-            if (html) root.addView(button("معاينة HTML دون إنترنت", this::previewHtml));
-            root.addView(button("بناء APK سحابياً (للمشاريع الكبيرة)", this::showCloudBuildDialog));
-            root.addView(button("حالة بناء APK", this::showOfflineBuildStatus));
-            root.addView(button("العودة للمشاريع", this::showHome));
+            LinearLayout actions = new LinearLayout(this); actions.setOrientation(LinearLayout.VERTICAL);
+            addCompactRow(actions, new String[]{"حفظ","ملفات + إضافة"}, new Runnable[]{this::saveSource,this::showProjectFiles});
+            if (!html) addCompactRow(actions, new String[]{"requirements.txt","Python والمكتبات"}, new Runnable[]{this::editRequirements,this::showPythonRuntimeInfo});
+            if (html) addCompactRow(actions, new String[]{"معاينة HTML دون إنترنت","حالة محركات البناء"}, new Runnable[]{this::previewHtml,this::showOfflineBuildStatus});
+            else addCompactRow(actions, new String[]{"حالة محركات البناء","إنشاء APK"}, new Runnable[]{this::showOfflineBuildStatus,this::buildLocalApk});
+            if (html) addCompactRow(actions, new String[]{"إنشاء APK","العودة للمشاريع"}, new Runnable[]{this::buildLocalApk,this::showHome});
+            else addCompactRow(actions, new String[]{"العودة للمشاريع"}, new Runnable[]{this::showHome});
+            root.addView(actions);
             setContentView(root);
         AppPalette.apply(this, root);
         } catch (Exception e) { toast("تعذر فتح المشروع: " + e.getMessage()); }
+    }
+
+    private void addCompactRow(LinearLayout parent, String[] labels, Runnable[] actions) {
+        LinearLayout row = new LinearLayout(this);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        for (int i = 0; i < labels.length; i++) {
+            Button b = button(labels[i], actions[i]);
+            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, dp(36), 1f);
+            lp.setMargins(dp(2), dp(2), dp(2), dp(2));
+            row.addView(b, lp);
+        }
+        parent.addView(row, new LinearLayout.LayoutParams(-1, dp(40)));
     }
 
     private void saveSource() {
@@ -219,9 +236,77 @@ public class DeveloperStudioActivity extends Activity {
         AppPalette.apply(this, root);
     }
 
+    private void buildLocalApk() {
+        if (currentProject == null) { toast("افتح مشروعاً أولاً"); return; }
+        saveSource();
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(12), dp(4), dp(12), dp(4));
+        EditText appTitle = new EditText(this);
+        appTitle.setSingleLine(true);
+        appTitle.setHint("اسم التطبيق");
+        appTitle.setText(currentProject.getName());
+        EditText packageName = new EditText(this);
+        packageName.setSingleLine(true);
+        packageName.setHint("com.example.myapp");
+        String segment = currentProject.getName().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
+        if (segment.isEmpty() || !Character.isLetter(segment.charAt(0))) segment = "project_" + segment;
+        packageName.setText("com.mimax.generated." + segment);
+        form.addView(label("اسم التطبيق الظاهر", 13, 0xFF536273));
+        form.addView(appTitle);
+        form.addView(label("اسم الحزمة (Package ID)", 13, 0xFF536273));
+        form.addView(packageName);
+        Button iconButton = button(selectedProjectIcon == null ? "اختيار أيقونة من الهاتف" : "تغيير الأيقونة المحددة", () -> {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("image/*");
+            startActivityForResult(pick, PICK_APP_ICON);
+        });
+        form.addView(iconButton);
+        form.addView(label("سيتم تضمين الأيقونة كاختصار قابل للإضافة إلى الشاشة الرئيسية عند فتح التطبيق الناتج.", 11, 0xFF64748B));
+        new AlertDialog.Builder(this).setTitle("إعدادات APK")
+            .setView(form).setNegativeButton("إلغاء", null)
+            .setPositiveButton("إنشاء APK", (dialog, which) -> {
+                String title = appTitle.getText().toString().trim();
+                String pkg = packageName.getText().toString().trim();
+                if (title.isEmpty() || !pkg.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*){1,7}")) {
+                    toast("تحقق من اسم التطبيق واسم الحزمة"); return;
+                }
+                final File project = currentProject;
+                final boolean html = currentHtml;
+                final File icon = selectedProjectIcon;
+                statusUpdate("جاري تجهيز APK ومحاذاته وتوقيعه على الهاتف...");
+                new Thread(() -> {
+                    try {
+                        File apk = LocalApkBuilder.build(this, project, html, title, pkg, icon);
+                        runOnUiThread(() -> {
+                            pendingApk = apk;
+                            Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                            save.addCategory(Intent.CATEGORY_OPENABLE);
+                            save.setType("application/vnd.android.package-archive");
+                            save.putExtra(Intent.EXTRA_TITLE, apk.getName());
+                            statusUpdate("اكتمل البناء. اختر مكان حفظ APK.");
+                            startActivityForResult(save, SAVE_APK);
+                        });
+                    } catch (Exception e) {
+                        runOnUiThread(() -> {
+                            statusUpdate("فشل البناء المحلي: " + e.getMessage());
+                            toast("فشل بناء APK محلياً: " + e.getMessage());
+                        });
+                    }
+                }).start();
+            }).show();
+    }
+
+    private void showPythonRuntimeInfo() {
+        new AlertDialog.Builder(this).setTitle("Python المحلي داخل APK")
+            .setMessage("يُضمّن ملف main.py داخل التطبيق الناتج ويُشغّل باستخدام Pyodide 0.27.7 داخل WebView. أول تشغيل يحتاج الإنترنت لتنزيل بيئة Python، وتُنزّل المكتبات من PyPI عبر micropip. ليست كل مكتبات pip متوافقة: المكتبات التي تحتاج امتدادات C/Native أو واجهة Kivy/SDL لا تعمل بهذا المحرك. هذا مسار Python محلي مستقل عن GitHub Actions.")
+            .setPositiveButton("حسناً", null).show();
+    }
+
     private void showOfflineBuildStatus() {
         new AlertDialog.Builder(this).setTitle("حالة محركات البناء")
-            .setMessage("قوالب HTML وPython مضمّنة داخل التطبيق، ويمكن إنشاء المشاريع وتعديلها ومعاينة HTML دون إنترنت. تجميع APK محلياً غير منفّذ حالياً؛ البناء النهائي يتم عبر GitHub Actions للمشاريع التي تحتاج بيئة Linux وAndroid SDK. Python يستخدم Kivy وpython-for-Android، وقد لا تعمل مكتبات native التي لا تتوفر لها وصفات Android.")
+            .setMessage("HTML: تُنسخ ملفات المشروع داخل قالب WebView ويُوقّع APK على الهاتف. Python: يُضمّن main.py ويعمل عبر Pyodide؛ تنزيل بيئة التشغيل والمكتبات يحتاج الإنترنت. ملفات Kotlin وJava الأصلية تبقى للبناء عبر GitHub Actions. قوالب APK العامة تستخدم معرف حزمة ثابت لكل نوع، لذلك لا يمكن تثبيت أكثر من مشروع مولّد من النوع نفسه بجانب الآخر حالياً.")
             .setPositiveButton("حسناً", null).show();
     }
 
@@ -486,6 +571,15 @@ public class DeveloperStudioActivity extends Activity {
                 toast("تم استيراد الملف: " + name);
                 showProjectFiles();
             } catch (Exception e) { toast("فشل استيراد الملف: " + e.getMessage()); }
+        }
+        if (request == PICK_APP_ICON && result == RESULT_OK && data != null && data.getData() != null) {
+            try (InputStream in = getContentResolver().openInputStream(data.getData());
+                 FileOutputStream out = new FileOutputStream(new File(getCacheDir(), "mimax-project-icon.png"))) {
+                byte[] buffer = new byte[8192]; int n;
+                while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                selectedProjectIcon = new File(getCacheDir(), "mimax-project-icon.png");
+                toast("تم اختيار الأيقونة. اضغط إنشاء APK للمتابعة.");
+            } catch (Exception e) { toast("تعذر قراءة الأيقونة: " + e.getMessage()); }
         }
         if (request == SAVE_APK && result == RESULT_OK && data != null && data.getData() != null && pendingApk != null) {
             try (InputStream in = new FileInputStream(pendingApk); OutputStream out = getContentResolver().openOutputStream(data.getData())) {
