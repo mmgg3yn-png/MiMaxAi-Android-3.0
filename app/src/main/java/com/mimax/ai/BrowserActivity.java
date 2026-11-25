@@ -122,6 +122,12 @@ public class BrowserActivity extends Activity {
         address.setTextColor(textColor);address.setHintTextColor(mutedColor);
         if(getIntent()!=null&&getIntent().getStringExtra("open_url")!=null)web.loadUrl(getIntent().getStringExtra("open_url"));
         else if(state==null)web.loadUrl("https://www.google.com");else if(state.getString("url")!=null)web.loadUrl(state.getString("url"));
+        if(getIntent()!=null&&getIntent().getBooleanExtra("search_widget",false)){
+            address.requestFocus();
+            ui.postDelayed(()->((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE))
+                    .showSoftInput(address,android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT),400);
+            getIntent().removeExtra("search_widget");
+        }
     }
     private void addButton(LinearLayout row,String label,Runnable run,int width){
         Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(10);
