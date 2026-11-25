@@ -35,7 +35,7 @@ class ZipScreen {
     ZipScreen(MainActivity a) { this.a = a; }
 
     static boolean zipLikeName(String n) {
-        return n.toLowerCase().matches(".*\\.(zip|apk|jar|apks|xapk|aar|zipx)$");
+        return n.toLowerCase().matches(".*\\.(zip|apk|jar|apks|xapk|aar|zipx|mt1|mt_1)$");
     }
 
     void open(File f) {
