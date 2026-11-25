@@ -7,6 +7,7 @@ import android.net.Uri;
 import android.os.Bundle;
 import android.view.Gravity;
 import android.view.View;
+import android.util.Base64;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
@@ -183,6 +184,7 @@ public class DeveloperStudioActivity extends Activity {
             root.addView(button("ملفات المشروع / إضافة ملف", this::showProjectFiles));
             if (!html) root.addView(button("تعديل requirements.txt", this::editRequirements));
             if (html) root.addView(button("معاينة HTML دون إنترنت", this::previewHtml));
+            root.addView(button("بناء APK عبر GitHub Actions", this::showCloudBuildDialog));
             root.addView(button("حالة بناء APK", this::showOfflineBuildStatus));
             root.addView(button("العودة للمشاريع", this::showHome));
             setContentView(root);
@@ -253,6 +255,105 @@ public class DeveloperStudioActivity extends Activity {
             editor.setText(req.exists() ? read(req) : "# مكتبة في كل سطر\\n");
             toast("عدّل المتطلبات ثم اضغط حفظ الملف");
         } catch (Exception e) { toast("تعذر فتح requirements.txt"); }
+    }
+
+
+    private void showCloudBuildDialog() {
+        if (currentProject == null) { toast("افتح مشروعاً أولاً"); return; }
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(12), dp(4), dp(12), dp(4));
+        EditText appTitle = new EditText(this);
+        appTitle.setSingleLine(true);
+        appTitle.setHint("اسم التطبيق");
+        appTitle.setText(currentProject.getName());
+        EditText packageName = new EditText(this);
+        packageName.setSingleLine(true);
+        packageName.setHint("اسم الحزمة مثل com.example.myapp");
+        packageName.setText("com.mimax.generated." + currentProject.getName().replaceAll("[^A-Za-z0-9]", "").toLowerCase(Locale.ROOT));
+        EditText token = new EditText(this);
+        token.setSingleLine(true);
+        token.setHint("GitHub Personal Access Token (لا يُحفظ)");
+        token.setInputType( android.text.InputType.TYPE_CLASS_TEXT | android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD );
+        form.addView(label("اسم التطبيق", 13, 0xFF536273)); form.addView(appTitle);
+        form.addView(label("اسم الحزمة", 13, 0xFF536273)); form.addView(packageName);
+        form.addView(label("رمز GitHub بصلاحية Contents: Read and write", 13, 0xFF536273)); form.addView(token);
+        form.addView(label("سيُرفع مصدر هذا المشروع فقط إلى مجلد خاص في المستودع، ثم يبدأ GitHub Actions البناء. لا تضع كلمة مرور أو مفتاحاً سرياً داخل ملفات المشروع.", 12, 0xFF64748B));
+        new AlertDialog.Builder(this).setTitle("إنشاء APK من المشروع")
+            .setView(form).setNegativeButton("إلغاء", null)
+            .setPositiveButton("رفع وبدء البناء", (d, w) -> {
+                String title = appTitle.getText().toString().trim();
+                String pkg = packageName.getText().toString().trim();
+                String pat = token.getText().toString().trim();
+                if (title.isEmpty() || !pkg.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*){1,7}") || pat.isEmpty()) {
+                    toast("تحقق من اسم التطبيق والحزمة ورمز GitHub"); return;
+                }
+                new Thread(() -> {
+                    try {
+                        uploadForCloudBuild(currentProject, currentHtml ? "html" : "python", title, pkg, pat);
+                        runOnUiThread(() -> new AlertDialog.Builder(this)
+                            .setTitle("تم رفع المشروع")
+                            .setMessage("تم رفع ملفات المشروع وبدأ GitHub Actions البناء تلقائياً عند تسجيل التغيير. افتح صفحة Actions في المستودع لمتابعة النتيجة وتنزيل APK من Artifacts. هذا بناء سحابي وليس محلياً.")
+                            .setPositiveButton("حسناً", null).show());
+                    } catch (Exception e) {
+                        runOnUiThread(() -> toast("فشل رفع/بدء البناء: " + e.getMessage()));
+                    }
+                }).start();
+            }).show();
+    }
+
+    private void uploadForCloudBuild(File project, String type, String title, String packageName, String token) throws Exception {
+        String id = "job-" + System.currentTimeMillis();
+        String base = "builder-input/" + id + "/";
+        JSONObject meta = new JSONObject();
+        meta.put("type", type); meta.put("title", title); meta.put("package", packageName);
+        meta.put("project", project.getName());
+        putGithubFile(base + "project.json", meta.toString(), token, "Add Mi_Max Ai builder job metadata");
+        File archive = new File(getCacheDir(), id + ".zip");
+        try (ZipOutputStream zip = new ZipOutputStream(new FileOutputStream(archive))) {
+            ArrayList<File> files = new ArrayList<>(); collect(project, files);
+            byte[] buffer = new byte[8192];
+            for (File file : files) {
+                String rel = project.toURI().relativize(file.toURI()).getPath();
+                zip.putNextEntry(new ZipEntry(rel));
+                try (FileInputStream in = new FileInputStream(file)) {
+                    int n; while ((n = in.read(buffer)) != -1) zip.write(buffer, 0, n);
+                }
+                zip.closeEntry();
+            }
+        }
+        try {
+            byte[] bytes = new byte[(int) archive.length()];
+            try (FileInputStream in = new FileInputStream(archive)) {
+                int p=0,n; while(p<bytes.length && (n=in.read(bytes,p,bytes.length-p))>0) p+=n;
+                if (p != bytes.length) throw new Exception("تعذرت قراءة أرشيف المشروع كاملاً");
+            }
+            putGithubFile(base + "project.zip", Base64.encodeToString(bytes, Base64.NO_WRAP), token,
+                "Upload Mi_Max Ai project for APK build", true);
+        } finally { archive.delete(); }
+    }
+
+    private void putGithubFile(String path, String content, String token, String message) throws Exception {
+        putGithubFile(path, content, token, message, false);
+    }
+
+    private void putGithubFile(String path, String content, String token, String message, boolean alreadyBase64) throws Exception {
+        String encoded = alreadyBase64 ? content : Base64.encodeToString(content.getBytes("UTF-8"), Base64.NO_WRAP);
+        JSONObject body = new JSONObject();
+        body.put("message", message); body.put("content", encoded); body.put("branch", "main");
+        URL url = new URL("https://api.github.com/repos/mmgg3yn-png/MiMaxAi-Android-3.0/contents/" + path);
+        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        conn.setRequestMethod("PUT"); conn.setConnectTimeout(20000); conn.setReadTimeout(60000);
+        conn.setDoOutput(true);
+        conn.setRequestProperty("Authorization", "Bearer " + token);
+        conn.setRequestProperty("Accept", "application/vnd.github+json");
+        conn.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
+        conn.setRequestProperty("Content-Type", "application/json; charset=utf-8");
+        try (OutputStream out = conn.getOutputStream()) { out.write(body.toString().getBytes("UTF-8")); }
+        int code = conn.getResponseCode();
+        String response = readStream(code < 400 ? conn.getInputStream() : conn.getErrorStream());
+        conn.disconnect();
+        if (code < 200 || code >= 300) throw new Exception("GitHub API HTTP " + code + ": " + response);
     }
 
     private void buildCurrentApk() { showOfflineBuildStatus(); }
