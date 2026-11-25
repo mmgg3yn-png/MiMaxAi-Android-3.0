@@ -133,8 +133,14 @@ public final class LpTools {
         }
         Lp.Device device = meta.devices.get(0);
         if (device.name.isEmpty() || device.size <= 0) throw new Io.Corrupt("بيانات جهاز super غير مكتملة.");
+        if ((device.flags & ~1) != 0) {
+            throw new Io.Unsupported("جهاز super يحتوي أعلام Metadata غير مدعومة؛ أُوقف البناء بدلاً من فقدها.");
+        }
         boolean suffix = (device.flags & 1) != 0;
         for (Lp.Group group : meta.groups) {
+            if ((group.flags & ~1) != 0) {
+                throw new Io.Unsupported("المجموعة " + group.name + " تحتوي أعلام Metadata غير مدعومة.");
+            }
             if (((group.flags & 1) != 0) != suffix) {
                 throw new Io.Unsupported("مجموعات LP تستخدم إعدادات Slot Suffix مختلفة؛ أُوقف إعادة التجميع لتجنب تغيير Metadata.");
             }
@@ -159,8 +165,12 @@ public final class LpTools {
         add(args, "--super-name", device.name);
         if (suffix) args.add("--auto-slot-suffixing");
         if (meta.virtualAb) args.add("--virtual-ab");
-        for (Lp.Group group : meta.groups) {
-            add(args, "--group", group.name + ":" + group.maxSize);
+        if (meta.groups.isEmpty()) {
+            add(args, "--group", "default:" + device.size);
+        } else {
+            for (Lp.Group group : meta.groups) {
+                add(args, "--group", group.name + ":" + group.maxSize);
+            }
         }
         long alignment = device.alignment > 0 ? device.alignment : (1L << 20);
         for (Lp.Part part : meta.parts) {
