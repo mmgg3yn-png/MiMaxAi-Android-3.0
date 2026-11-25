@@ -30,6 +30,16 @@ jobs:
         with:
           gradle-version: '8.7'
 
+      - name: Install Android NDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: 'ndk;27.2.12479018'
+
+      - name: Build AOSP logical-partition tools for ARM32 and ARM64
+        env:
+          ANDROID_NDK_HOME: ${{ env.ANDROID_HOME }}/ndk/27.2.12479018
+        run: bash tools/build-aosp-lp-tools-android.sh
+
       - name: Validate PC Bridge Python
         run: python -m py_compile pc-agent/mimax_pc_agent.py && python pc-agent/mimax_pc_agent.py --help
 
