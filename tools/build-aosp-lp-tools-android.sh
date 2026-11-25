@@ -50,13 +50,27 @@ replacements = {
     'if [ -z "$OS"];then': 'if [ -z "$OS" ]; then',
     "$HOSTTYPE": "$TARGET_ARCH",
     "-lpthread ${LDFLAGS}": "-pthread ${LDFLAGS}",
-    "-std=c++17": "-std=c++17 -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION -D__ANDROID_SDK_VERSION__=30",
+    "-std=c++17": "-std=c++17 -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION -D__ANDROID_SDK_VERSION__=30 -DMIMAX_LP_TOOLS_NO_CONTROL_FD",
 }
 for old, new in replacements.items():
     if old not in s:
         raise SystemExit(f"Expected upstream make.sh token missing: {old}")
     s = s.replace(old, new)
 p.write_text(s)
+
+# These are standalone userspace image tools, not init/recovery services.
+# The control-fd hook is only for inherited descriptors of protected device
+# nodes; the app passes ordinary image-file paths and uses open() instead.
+util = Path(sys.argv[1]).parent / "lib" / "liblp" / "utility.cpp"
+u = util.read_text()
+old_include = "#ifdef __ANDROID__\\n#include <cutils/android_get_control_file.h>\\n#endif"
+new_include = "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_NO_CONTROL_FD)\\n#include <cutils/android_get_control_file.h>\\n#endif"
+old_call = "#if defined(__ANDROID__)\\n    int fd = android_get_control_file(path.data());"
+new_call = "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_NO_CONTROL_FD)\\n    int fd = android_get_control_file(path.data());"
+if old_include not in u or old_call not in u:
+    raise SystemExit("Could not find expected control-fd code in liblp/utility.cpp")
+u = u.replace(old_include, new_include, 1).replace(old_call, new_call, 1)
+util.write_text(u)
 PY
 }
 
@@ -70,7 +84,7 @@ build_abi() {
   export AR="$TOOLCHAIN/llvm-ar"
   export STRIP="$TOOLCHAIN/llvm-strip"
   export TARGET_ARCH="$arch"
-  export CFLAGS="-O2 -fPIE -D_FILE_OFFSET_BITS=64 -fno-strict-aliasing -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION -D__ANDROID_SDK_VERSION__=30"
+  export CFLAGS="-O2 -fPIE -D_FILE_OFFSET_BITS=64 -fno-strict-aliasing -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION -D__ANDROID_SDK_VERSION__=30 -DMIMAX_LP_TOOLS_NO_CONTROL_FD"
   export LDFLAGS="-pie -llog -ldl"
 
   (cd "$WORK" && bash ./make.sh)
