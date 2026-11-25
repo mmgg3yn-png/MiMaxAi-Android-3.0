@@ -90,6 +90,7 @@ public final class FastDownloadTask {
             final long start=i*chunk, end=Math.min(total-1,start+chunk-1);
             if(start>=total)break;
             pool.submit(()->{
+                active.incrementAndGet();
                 HttpURLConnection c=null;
                 try{
                     c=connect(start,end,true);
@@ -105,11 +106,11 @@ public final class FastDownloadTask {
                         if(pos!=end+1)throw new Exception("استجابة غير مكتملة من الخادم");
                     }
                 }catch(Exception e){failed=true;cancelled.set(true);listener.onError(e.getMessage()==null?"فشل جزء من التنزيل":e.getMessage());}
-                finally{if(c!=null)c.disconnect();}
+                finally{if(c!=null)c.disconnect();active.decrementAndGet();}
             });
         }
         pool.shutdown();
-        while(!pool.isTerminated()&&!cancelled.get()){try{Thread.sleep(150);}catch(InterruptedException e){Thread.currentThread().interrupt();break;}}
+        while(!pool.isTerminated()){try{Thread.sleep(150);}catch(InterruptedException e){Thread.currentThread().interrupt();pool.shutdownNow();break;}}
         if(cancelled.get()||failed)throw new Exception("تم إيقاف التنزيل أو فشل أحد أجزائه");
         if(downloaded.get()!=total)throw new Exception("حجم الملف المستلم غير مكتمل");
     }
