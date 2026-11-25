@@ -178,7 +178,7 @@ class ImgScreen {
      * in-process Java readers. The source is never modified.
      */
     void unpackTraditional() {
-        final File dir = unique(partsDir());
+        final File dir = partsDir();
         final File parent = img.getAbsoluteFile().getParentFile();
         final File raw = info.sparse ? unique(sibling("_lpunpack.raw.img")) : img;
         final long rawBytes = info.sparse ? info.rawSize : 0;
@@ -294,8 +294,8 @@ class ImgScreen {
         final File output = unique(sibling(alsoSparse ? "_new.sparse.img" : "_new.img"));
         final File verifyRaw = alsoSparse ? new File(work, "output.raw.img") : output;
         final File verifyDir = new File(work, "verify");
-        final long needed = (info.sparse ? info.rawSize : 0) + meta.totalSize()
-                + (alsoSparse ? 0 : meta.deviceSize);
+        final long workNeeded = (info.sparse ? info.rawSize : 0) + meta.totalSize()
+                + (alsoSparse ? meta.deviceSize : 0);
         a.confirm("سيُعاد بناء super باستخدام أداة AOSP lpmake الحقيقية."
                 + "\n\nسيتم استخراج الأقسام الأصلية إلى مجلد مؤقت، ثم استخدام نسخ _edited عند وجودها."
                 + "\nسيُفحص الناتج بواسطة lpdump وlpunpack وتُقارن بيانات الأقسام."
@@ -307,7 +307,9 @@ class ImgScreen {
             final String[] dump = new String[1];
             a.runBgP("AOSP lpmake — إعادة بناء super والتحقق", cancel, progress -> {
                 if (!work.exists() && !work.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد العمل المؤقت");
-                Io.checkSpace(work, needed);
+                Io.checkSpace(work, workNeeded);
+                Io.checkSpace(output.getAbsoluteFile().getParentFile(),
+                        alsoSparse ? (64L << 20) : meta.deviceSize);
                 if (info.sparse) Sparse.toRaw(img, sourceRaw, progress, cancel);
 
                 File extractedDir = new File(work, "original_parts");
@@ -321,6 +323,9 @@ class ImgScreen {
                     if (cancel != null) cancel.check();
                     File edited = new File(editedDir, part.name + "_edited.img");
                     File original = new File(extractedDir, part.name + ".img");
+                    if (part.size == 0 && !original.exists() && !original.createNewFile()) {
+                        throw new java.io.IOException("تعذر إنشاء القسم الفارغ " + part.name);
+                    }
                     File chosen = edited.isFile() ? edited : original;
                     if (!chosen.isFile()) throw new java.io.IOException("ملف القسم غير موجود: " + part.name);
                     images.put(part.name, chosen);
