@@ -52,13 +52,17 @@ final class BinaryManifestPatcher {
         }
         boolean utf8 = (flags & 0x100) != 0;
         String[] strings = new String[stringCount];
+        boolean packageFound = false;
         int offsetsStart = headerSize;
         for (int i = 0; i < stringCount; i++) {
             int offset = (int) u32(b, offsetsStart + i * 4);
             int at = stringsStart + offset;
             strings[i] = utf8 ? readUtf8(chunk, at) : readUtf16(chunk, at);
             if ("com.mimax.localrunner.html".equals(strings[i]) ||
-                    "com.mimax.localrunner.python".equals(strings[i])) strings[i] = packageName;
+                    "com.mimax.localrunner.python".equals(strings[i])) {
+                strings[i] = packageName;
+                packageFound = true;
+            }
             else if ("MiMax Local Project".equals(strings[i])) strings[i] = label;
         }
 
@@ -70,6 +74,7 @@ final class BinaryManifestPatcher {
         }
         int newStringsStart = headerSize + stringCount * 4;
         int newSize = newStringsStart + stringData.size();
+        while ((newSize & 3) != 0) newSize++;
         ByteBuffer out = ByteBuffer.allocate(newSize).order(ByteOrder.LITTLE_ENDIAN);
         out.putShort((short) 0x0001);
         out.putShort((short) headerSize);
@@ -82,6 +87,7 @@ final class BinaryManifestPatcher {
         for (int offset : offsets) out.putInt(offset);
         out.position(newStringsStart);
         out.put(stringData.toByteArray());
+        if (!packageFound) throw new Exception("لم يتم العثور على اسم الحزمة الأصلي داخل Manifest");
         return out.array();
     }
 
