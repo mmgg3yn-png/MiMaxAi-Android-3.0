@@ -19,6 +19,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate native build scripts
+        run: |
+          bash -n tools/build-aosp-lp-tools-android.sh
+          python3 - <<'PY'
+          from pathlib import Path
+          source = Path("tools/build-aosp-lp-tools-android.sh").read_text()
+          start = source.index("<<'PY'") + len("<<'PY'")
+          end = source.index("\nPY\n", start)
+          compile(source[start:end], "lp-tools-build-patcher", "exec")
+          print("Native build script syntax is valid.")
+          PY
+
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -33,7 +45,7 @@ jobs:
       - name: Install Android NDK
         uses: android-actions/setup-android@v3
         with:
-          packages: 'ndk;27.2.12479018'
+          packages: 'ndk;27.3.13750724'
 
       - name: Build AOSP logical-partition tools for ARM32 and ARM64
         run: bash tools/build-aosp-lp-tools-android.sh
