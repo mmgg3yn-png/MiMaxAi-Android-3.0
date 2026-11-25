@@ -80,7 +80,7 @@ jobs:
               raise SystemExit("Python project must contain main.py")
           with open(os.environ["GITHUB_OUTPUT"],"a") as f:
               f.write(f"type={kind}\n")
-              f.write(f"title={title}\n")
+              f.write("title=" + html.escape(str(title).replace(chr(10), " "), quote=True) + "\n")
               f.write(f"package={package}\n")
           PY
 
