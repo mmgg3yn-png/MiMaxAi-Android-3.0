@@ -96,7 +96,12 @@ final class ExtensionRuntime {
                 ExtensionState.appendLog(activity, extensionId, "JavaScript extension completed.");
             } catch (Throwable error) {
                 ExtensionState.recordFailure(activity, extensionId, error);
-                Toast.makeText(activity, "فشل تشغيل الإضافة: " + error.getMessage(), Toast.LENGTH_LONG).show();
+                Toast.makeText(activity, "فشل تشغيل الإضافة وتم تعطيلها تلقائياً.", Toast.LENGTH_LONG).show();
+                activity.runOnUiThread(() -> {
+                    if (!activity.isFinishing()) {
+                        activity.startActivity(new Intent(activity, ExtensionRecoveryActivity.class));
+                    }
+                });
             } finally {
                 ExtensionState.clearActive(activity);
             }
