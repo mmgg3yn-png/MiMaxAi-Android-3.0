@@ -35,21 +35,37 @@ public final class ExtensionScriptRuntime {
         File script = new File(root, "main.js");
         if (!script.isFile() || script.length() > 512 * 1024) throw new Exception("main.js missing or too large");
         String source = new String(read(script, 512 * 1024), StandardCharsets.UTF_8);
-        Context cx = Context.enter();
-        try {
-            cx.setOptimizationLevel(-1);
-            cx.setLanguageVersion(Context.VERSION_ES6);
-            cx.setInstructionObserverThreshold(100000);
-            cx.setGenerateObserverCount(true);
-            cx.setClassShutter(new ClassShutter() {
-                @Override public boolean visibleToScripts(String className) { return false; }
-            });
-            Scriptable scope = cx.initSafeStandardObjects();
-            ScriptableObject.putProperty(scope, "api", Context.javaToJS(new PluginApi(activity, extensionId, selectedFile), scope));
-            cx.evaluateString(scope, source, extensionId + "/main.js", 1, null);
-        } finally {
-            Context.exit();
-        }
+        org.mozilla.javascript.ContextFactory factory = new org.mozilla.javascript.ContextFactory() {
+            private int observedInstructions;
+
+            @Override protected Context makeContext() {
+                Context context = super.makeContext();
+                context.setOptimizationLevel(-1);
+                context.setLanguageVersion(Context.VERSION_ES6);
+                context.setInstructionObserverThreshold(10000);
+                context.setClassShutter(new ClassShutter() {
+                    @Override public boolean visibleToScripts(String className) {
+                        // Expose only the documented bridge object, never arbitrary Java APIs.
+                        return PluginApi.class.getName().equals(className);
+                    }
+                });
+                return context;
+            }
+
+            @Override protected void observeInstructionCount(Context context, int instructionCount) {
+                observedInstructions += instructionCount;
+                if (observedInstructions > 1000000) {
+                    throw new org.mozilla.javascript.EvaluatorException("Extension instruction limit exceeded");
+                }
+            }
+        };
+        factory.call(context -> {
+            Scriptable scope = context.initSafeStandardObjects();
+            ScriptableObject.putProperty(scope, "api",
+                    Context.javaToJS(new PluginApi(activity, extensionId, selectedFile), scope));
+            context.evaluateString(scope, source, extensionId + "/main.js", 1, null);
+            return null;
+        });
     }
 
     private static byte[] read(File file, int max) throws Exception {
@@ -77,7 +93,7 @@ public final class ExtensionScriptRuntime {
         }
 
         public String getApiVersion() { return "2.0"; }
-        public String getAppVersion() { return "3.0.2"; }
+        public String getAppVersion() { return BuildConfig.VERSION_NAME; }
         public String getSelectedFileName() { return selected != null ? selected.getName() : ""; }
         public boolean hasSelectedFile() { return selected != null && selected.isFile(); }
 
