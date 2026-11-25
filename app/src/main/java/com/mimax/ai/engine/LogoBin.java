@@ -32,7 +32,7 @@ public final class LogoBin {
     private LogoBin() { }
     public static final int HEADER_SIZE = 512;
     public static final int MAGIC = 0x88168858;
-    private static final long MAX_INFLATED = 96L << 20;
+    private static final long MAX_INFLATED = 32L << 20;
     private static final Pattern NAME = Pattern.compile("^logo_(\\d{3,})_(bgrale|bgrabe|rgbale|rgbabe|rgb565le|rgb565be)\\.png$", Pattern.CASE_INSENSITIVE);
     private static final Pattern RAW = Pattern.compile("^logo_(\\d{3,})\\.raw\\.z$", Pattern.CASE_INSENSITIVE);
 
