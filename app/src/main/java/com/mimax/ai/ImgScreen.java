@@ -138,6 +138,7 @@ class ImgScreen {
         }));
         p.addView(a.btn("استخراج الأقسام المحددة", a.AC, a.ON, v -> extractSelected()));
         p.addView(a.btn("فك super بالطريقة التقليدية (Sparse → Raw → أقسام)", a.SF2, a.TX, v -> unpackTraditional()));
+        p.addView(a.btn("عرض تقرير AOSP lpdump", a.SF2, a.TX, v -> showLpDump()));
         p.addView(a.btn("إعادة تجميع super بالأقسام المعدَّلة", a.SF2, a.TX, v -> repack(false)));
         p.addView(a.btn("إعادة تجميع + حفظ نسخة Sparse", a.SF2, a.TX, v -> repack(true)));
         p.addView(a.note("طريقة التعديل: استخرج الأقسام ← افتح القسم (مثلاً system.img) وعدّل ملفاته فتُحفظ نسخة باسم <القسم>_edited.img بجانبه ← أعد التجميع، فتُستخدم النسخ المعدَّلة تلقائياً.\nيُكتب super جديد بجانب الأصل ولا يُلمس الأصل، والتطبيق لا يفلّش أي قسم."));
@@ -162,48 +163,71 @@ class ImgScreen {
      */
     void unpackTraditional() {
         final File dir = unique(partsDir());
-        final File raw = info.sparse ? unique(sibling(".raw.img")) : img;
+        final File parent = img.getAbsoluteFile().getParentFile();
+        final File raw = info.sparse ? unique(sibling("_lpunpack.raw.img")) : img;
         final long rawBytes = info.sparse ? info.rawSize : 0;
-        final long partitionBytes = meta.totalSize();
-        final long required = rawBytes + partitionBytes;
-        String steps = info.sparse
-                ? "1) تحويل Sparse إلى Raw: " + Io.human(rawBytes)
-                    + "\n2) استخراج أقسام LP: " + Io.human(partitionBytes)
-                : "1) قراءة Raw مباشرة (لا حاجة للتحويل)"
-                    + "\n2) استخراج أقسام LP: " + Io.human(partitionBytes);
-        long available = img.getAbsoluteFile().getParentFile().getUsableSpace();
-        a.confirm("فك super بالطريقة التقليدية (simg2img ثم lpunpack)\n\n"
-                + steps + "\n\nمجلد الناتج: " + dir.getPath()
-                + "\nالمساحة المطلوبة تقريباً: " + Io.human(required)
-                + "\nالمساحة المتاحة: " + Io.human(available)
-                + "\n\nسيُحفظ Raw بجانب الصورة عند الحاجة، وتُستخرج الأقسام في مجلد جديد. لن يتغير الملف الأصلي.",
-                () -> {
+        final long partitionsBytes = meta.totalSize();
+        final long required = rawBytes + partitionsBytes;
+        a.confirm("سيتم استخدام أداة AOSP lpunpack الحقيقية بعد تحويل Sparse إلى Raw عند الحاجة."
+                + "\n\nالمساحة المطلوبة تقديرياً: " + Io.human(required)
+                + "\nالمتاح: " + Io.human(parent.getUsableSpace())
+                + "\n\nالناتج: " + dir.getPath()
+                + (info.sparse ? "\nوسيُحفظ ملف Raw مؤقت/مساعد بجانب الصورة: " + raw.getName() : "")
+                + "\n\nلن يتغير ملف super الأصلي.", () -> {
             final Io.Cancel cancel = new Io.Cancel();
-            a.runBgP("Sparse → Raw → LP partitions", cancel, progress -> {
-                if (required > 0) Io.checkSpace(img.getAbsoluteFile().getParentFile(), required);
+            final String[] report = new String[1];
+            a.runBgP("AOSP lpunpack — استخراج الأقسام", cancel, progress -> {
+                Io.checkSpace(parent, required);
                 if (info.sparse) Sparse.toRaw(img, raw, progress, cancel);
-                if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الناتج: " + dir);
-                try (Vsrc.FileV source = new Vsrc.FileV(raw)) {
-                    Lp.Meta parsed = Lp.read(source);
-                    if (parsed.parts.isEmpty()) throw new java.io.IOException("لم يتم العثور على أقسام LP");
-                    long total = Math.max(1, parsed.totalSize());
-                    long completed = 0;
-                    for (Lp.Part part : parsed.parts) {
-                        if (cancel != null) cancel.check();
-                        if (part.size <= 0) continue;
-                        final long base = completed;
-                        File out = new File(dir, part.name + ".img");
-                        Lp.extract(source, part, out,
-                                (done, ignored) -> progress.on(base + done, total),
-                                cancel);
-                        completed += part.size;
+                if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الاستخراج: " + dir);
+                report[0] = LpTools.run(a, "lpunpack",
+                        java.util.Arrays.asList(raw.getAbsolutePath(), dir.getAbsolutePath()),
+                        cancel, progress);
+                for (Lp.Part part : meta.parts) {
+                    if (cancel != null) cancel.check();
+                    if (part.size == 0) continue;
+                    File extracted = new File(dir, part.name + ".img");
+                    if (!extracted.isFile() || extracted.length() != part.size) {
+                        throw new java.io.IOException("فشل التحقق من القسم " + part.name
+                                + " — المتوقع " + Io.human(part.size) + "، الناتج "
+                                + (extracted.exists() ? Io.human(extracted.length()) : "غير موجود"));
                     }
                 }
-            }, () -> a.showError("اكتمل استخراج أقسام super.\n"
-                    + (info.sparse ? "صورة Raw: " + raw.getPath() + "\n" : "")
-                    + "مجلد الأقسام: " + dir.getPath()
-                    + "\n\nيمكنك فتح ملفات الأقسام من مدير الملفات."));
+                progress.on(1, 1);
+            }, () -> a.showError("اكتمل الفك باستخدام AOSP lpunpack.\n"
+                    + (info.sparse ? "Raw: " + raw.getPath() + "\n" : "")
+                    + "الأقسام: " + dir.getPath()
+                    + (report[0] == null || report[0].isEmpty() ? "" : "\n\n" + report[0])));
         });
+    }
+
+    void showLpDump() {
+        final File parent = img.getAbsoluteFile().getParentFile();
+        final File work = new File(a.getCacheDir(), "lp-dump-" + System.currentTimeMillis());
+        final File raw = info.sparse ? new File(work, "super.raw.img") : img;
+        final Io.Cancel cancel = new Io.Cancel();
+        final String[] dump = new String[1];
+        a.runBgP("AOSP lpdump — قراءة Metadata", cancel, progress -> {
+            if (info.sparse) {
+                if (!work.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد مؤقت");
+                Io.checkSpace(work, info.rawSize);
+                Sparse.toRaw(img, raw, progress, cancel);
+            }
+            dump[0] = LpTools.run(a, "lpdump",
+                    java.util.Collections.singletonList(raw.getAbsolutePath()), cancel, progress);
+            if (info.sparse) deleteTree(work);
+            progress.on(1, 1);
+        }, () -> a.showError(dump[0] == null || dump[0].isEmpty()
+                ? "اكتمل lpdump دون إخراج نصي." : dump[0]));
+    }
+
+    void deleteTree(File file) {
+        if (file == null || !file.exists()) return;
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) for (File child : children) deleteTree(child);
+        }
+        file.delete();
     }
 
     void extractSelected() {
@@ -230,28 +254,73 @@ class ImgScreen {
     }
 
     void repack(final boolean alsoSparse) {
-        final File dir = partsDir();
-        final Map<String, File> repl = new LinkedHashMap<>();
-        for (Lp.Part pt : meta.parts) { File e = new File(dir, pt.name + "_edited.img"); if (e.isFile()) repl.put(pt.name, e); }
-        if (repl.isEmpty()) {
-            a.showError("لا توجد أقسام معدَّلة.\nضع نسخة معدّلة باسم <القسم>_edited.img داخل:\n" + dir.getPath() + "\nثم أعد المحاولة.");
-            return;
-        }
-        final File out = unique(sibling("_new.img"));
-        StringBuilder sb = new StringBuilder("سيُبنى super جديد بالأقسام المستبدلة:");
-        long add = 0;
-        for (Map.Entry<String, File> e : repl.entrySet()) { sb.append("\n• ").append(e.getKey()).append(" ← ").append(Io.human(e.getValue().length())); add += e.getValue().length(); }
-        sb.append("\n\nالناتج: ").append(out.getPath()).append("\nالمطلوب نحو ").append(Io.human(meta.deviceSize)).append(alsoSparse ? " + نسخة Sparse" : "");
-        a.confirm(sb.toString(), () -> {
-            final Io.Cancel c = new Io.Cancel();
-            a.runBgP("إعادة تجميع super", c, p -> {
-                withSrc(img, info.sparse, s -> Lp.repack(s, Lp.read(s), repl, out, p, c));
-                if (alsoSparse) {
-                    File sp = unique(sibling("_new.sparse.img"));
-                    Sparse.fromRaw(out, sp, null, c);
+        final File editedDir = partsDir();
+        final File work = new File(a.getCacheDir(), "lp-repack-" + System.currentTimeMillis());
+        final File sourceRaw = info.sparse ? new File(work, "source.raw.img") : img;
+        final File output = unique(sibling(alsoSparse ? "_new.sparse.img" : "_new.img"));
+        final File verifyRaw = alsoSparse ? new File(work, "output.raw.img") : output;
+        final File verifyDir = new File(work, "verify");
+        final long needed = (info.sparse ? info.rawSize : 0) + meta.totalSize()
+                + (alsoSparse ? 0 : meta.deviceSize);
+        a.confirm("سيُعاد بناء super باستخدام أداة AOSP lpmake الحقيقية."
+                + "\n\nسيتم استخراج الأقسام الأصلية إلى مجلد مؤقت، ثم استخدام نسخ _edited عند وجودها."
+                + "\nسيُفحص الناتج بواسطة lpdump وlpunpack وتُقارن بيانات الأقسام."
+                + "\n\nالمساحة التقديرية: " + Io.human(needed)
+                + "\nالمتاح: " + img.getAbsoluteFile().getParentFile().getUsableSpace()
+                + "\nالناتج الجديد: " + output.getPath()
+                + "\n\nلن يُكتب فوق super الأصلي.", () -> {
+            final Io.Cancel cancel = new Io.Cancel();
+            final String[] dump = new String[1];
+            a.runBgP("AOSP lpmake — إعادة بناء super والتحقق", cancel, progress -> {
+                if (!work.exists() && !work.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد العمل المؤقت");
+                Io.checkSpace(work, needed);
+                if (info.sparse) Sparse.toRaw(img, sourceRaw, progress, cancel);
+
+                File extractedDir = new File(work, "original_parts");
+                if (!extractedDir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الأقسام الأصلية");
+                LpTools.run(a, "lpunpack",
+                        java.util.Arrays.asList(sourceRaw.getAbsolutePath(), extractedDir.getAbsolutePath()),
+                        cancel, progress);
+
+                Map<String, File> images = new LinkedHashMap<>();
+                for (Lp.Part part : meta.parts) {
+                    if (cancel != null) cancel.check();
+                    File edited = new File(editedDir, part.name + "_edited.img");
+                    File original = new File(extractedDir, part.name + ".img");
+                    File chosen = edited.isFile() ? edited : original;
+                    if (!chosen.isFile()) throw new java.io.IOException("ملف القسم غير موجود: " + part.name);
+                    images.put(part.name, chosen);
                 }
-            }, () -> a.showError("تم بناء super الجديد:\n" + out.getPath() + (alsoSparse ? "\nوتمّ حفظ نسخة Sparse بجانبه." : "")
-                    + "\n\nتحقق التطبيق من قراءة الناتج ومطابقة الأقسام المستبدلة بايتاً ببايت.\nالفلاش (fastboot) مسؤوليتك، والتطبيق لا يكتب على أقسام الجهاز."));
+
+                List<String> args = LpTools.lpmakeArgs(meta, images, output, alsoSparse);
+                LpTools.run(a, "lpmake", args, cancel, progress);
+                if (!output.isFile() || output.length() == 0) {
+                    throw new java.io.IOException("lpmake لم ينتج ملف super صالحاً.");
+                }
+
+                if (alsoSparse) {
+                    Sparse.toRaw(output, verifyRaw, progress, cancel);
+                }
+                dump[0] = LpTools.run(a, "lpdump",
+                        java.util.Collections.singletonList(verifyRaw.getAbsolutePath()), cancel, progress);
+                if (!verifyDir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد التحقق");
+                LpTools.run(a, "lpunpack",
+                        java.util.Arrays.asList(verifyRaw.getAbsolutePath(), verifyDir.getAbsolutePath()),
+                        cancel, progress);
+
+                for (Lp.Part part : meta.parts) {
+                    if (cancel != null) cancel.check();
+                    File actual = new File(verifyDir, part.name + ".img");
+                    LpTools.verifyPaddedImage(images.get(part.name), actual);
+                }
+                deleteTree(work);
+                progress.on(1, 1);
+            }, () -> a.showError("اكتمل بناء super باستخدام AOSP lpmake.\n"
+                    + "الملف: " + output.getPath() + "\n"
+                    + "الحجم: " + Io.human(output.length()) + "\n\n"
+                    + "نجح lpdump في قراءة Metadata، ونجح lpunpack في استخراج جميع الأقسام، "
+                    + "وتم التحقق من بياناتها ومقارنتها بملفات الإدخال."
+                    + (dump[0] == null || dump[0].isEmpty() ? "" : "\n\n" + dump[0])));
         });
     }
 
