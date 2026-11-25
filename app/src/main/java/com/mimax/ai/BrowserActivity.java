@@ -13,6 +13,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.widget.FrameLayout;
 import android.content.Context;
+import android.content.ContentValues;
+import android.provider.MediaStore;
 import android.content.Intent;
 import android.database.Cursor;
 import android.net.Uri;
@@ -40,6 +42,9 @@ import org.json.JSONArray;
 
 import java.util.ArrayList;
 import java.util.Locale;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.OutputStream;
 
 public class BrowserActivity extends Activity {
     private WebView web;
@@ -50,6 +55,11 @@ public class BrowserActivity extends Activity {
     private Runnable downloadRefresh;
     private int baseColor, surfaceColor, textColor, mutedColor, accentColor;
     private boolean desktop=false, immersive=false;
+    private FastDownloadTask fastTask;
+    private volatile long fastGot=0, fastTotal=-1;
+    private volatile String fastState="";
+    private volatile Uri fastUri;
+    private volatile File fastFile;
     private static final String PREF="mimax_browser";
     private int dp(int n){return Math.round(n*getResources().getDisplayMetrics().density);}
     private void toast(String s){Toast.makeText(this,s,Toast.LENGTH_SHORT).show();}
@@ -262,7 +272,7 @@ public class BrowserActivity extends Activity {
         final DownloadManager dm=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
         LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setPadding(dp(10),dp(8),dp(10),dp(8));panel.setBackgroundColor(surfaceColor);
         TextView heading=new TextView(this);heading.setText("مدير التنزيلات");heading.setTextSize(18);heading.setTextColor(textColor);heading.setPadding(0,0,0,dp(6));panel.addView(heading);
-        TextView note=new TextView(this);note.setText("يعرض التقدم والحجم والحالة. سرعة التنزيل الحالية تعتمد على خادم الموقع ومحرك Android؛ التنزيل المجزأ متعدد الاتصالات غير مفعّل بعد.");note.setTextSize(10);note.setTextColor(mutedColor);panel.addView(note);
+        TextView note=new TextView(this);note.setText("التنزيل السريع يستخدم حتى 4 اتصالات متوازية عندما يسمح الخادم بطلبات Range، ويتحول تلقائياً لاتصال واحد عند عدم الدعم.");note.setTextSize(10);note.setTextColor(mutedColor);panel.addView(note);
         ScrollView scroll=new ScrollView(this);downloadRows=new LinearLayout(this);downloadRows.setOrientation(LinearLayout.VERTICAL);scroll.addView(downloadRows);
         panel.addView(scroll,new LinearLayout.LayoutParams(-1,dp(420)));
         AlertDialog dialog=new AlertDialog.Builder(this).setView(panel).setPositiveButton("إغلاق",null).create();
@@ -295,6 +305,17 @@ public class BrowserActivity extends Activity {
                     card.addView(actions);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.bottomMargin=dp(7);downloadRows.addView(card,cp);
                 }
                 cur.close();
+            }
+            if(fastTask!=null || fastFile!=null){
+                LinearLayout fastCard=new LinearLayout(this);fastCard.setOrientation(LinearLayout.VERTICAL);fastCard.setPadding(dp(9),dp(6),dp(9),dp(6));
+                GradientDrawable fastBg=new GradientDrawable();fastBg.setColor(tint(surfaceColor,accentColor,0.16f));fastBg.setCornerRadius(dp(12));fastCard.setBackground(fastBg);
+                TextView ft=new TextView(this);ft.setText("تنزيل سريع • "+(fastState.isEmpty()?"قيد التجهيز":fastState));ft.setTextColor(textColor);ft.setTextSize(13);fastCard.addView(ft);
+                TextView fs=new TextView(this);fs.setText(formatBytes(fastGot)+" / "+(fastTotal>0?formatBytes(fastTotal):"غير معروف"));fs.setTextColor(mutedColor);fs.setTextSize(11);fastCard.addView(fs);
+                ProgressBar fp=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);fp.setMax(100);fp.setProgress(fastTotal>0?(int)Math.min(100,fastGot*100/fastTotal):0);fp.setProgressTintList(android.content.res.ColorStateList.valueOf(accentColor));fastCard.addView(fp,new LinearLayout.LayoutParams(-1,dp(5)));
+                LinearLayout fa=new LinearLayout(this);fa.setGravity(Gravity.RIGHT);
+                if(fastUri!=null){Button fo=new Button(this);fo.setText("فتح");fo.setTextSize(10);fo.setOnClickListener(v->openFastDownload());fa.addView(fo);}
+                if(fastTask!=null && fastState.startsWith("ينزّل")){Button fc=new Button(this);fc.setText("إلغاء");fc.setTextSize(10);fc.setOnClickListener(v->{fastTask.cancel();fastTask=null;fastState="أُلغي";toast("تم إلغاء التنزيل السريع");});fa.addView(fc);}
+                fastCard.addView(fa);LinearLayout.LayoutParams fpLp=new LinearLayout.LayoutParams(-1,-2);fpLp.bottomMargin=dp(7);downloadRows.addView(fastCard,0,fpLp);
             }
             if(count==0){TextView empty=new TextView(this);empty.setText("لا توجد تنزيلات حالياً");empty.setTextColor(mutedColor);empty.setPadding(dp(8),dp(18),dp(8),dp(18));downloadRows.addView(empty);}
         };
@@ -351,16 +372,53 @@ public class BrowserActivity extends Activity {
         }catch(Exception e){toast("تعذرت إعادة المحاولة");}
     }
     private void download(String url,String ua,String disposition,String mime){
+        if(fastTask!=null && fastState.startsWith("ينزّل")){toast("يوجد تنزيل سريع جارٍ حالياً");return;}
         try{
-            DownloadManager.Request r=new DownloadManager.Request(Uri.parse(url));
             String name=android.webkit.URLUtil.guessFileName(url,disposition,mime);
-            r.setTitle(name);r.setDescription("Mi_Max Ai Browser");if(mime!=null)r.setMimeType(mime);
-            if(ua!=null)r.addRequestHeader("User-Agent",ua);
-            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
-            r.setAllowedOverMetered(true);r.setAllowedOverRoaming(false);
-            r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,"MiMaxAi/"+name);
-            ((DownloadManager)getSystemService(DOWNLOAD_SERVICE)).enqueue(r);toast("بدأ التنزيل");
-        }catch(Exception e){toast("تعذر بدء التنزيل");}
+            String cookie=android.webkit.CookieManager.getInstance().getCookie(url);
+            String referer=web==null?null:web.getUrl();
+            fastGot=0;fastTotal=-1;fastUri=null;fastFile=null;fastState="ينزّل • تجهيز الاتصالات";
+            fastTask=new FastDownloadTask(this,url,ua,cookie,referer,name,new FastDownloadTask.Listener(){
+                @Override public void onProgress(long got,long total,int connections){
+                    fastGot=got;fastTotal=total;fastState="ينزّل • "+connections+" اتصالات";
+                }
+                @Override public void onComplete(File file){
+                    ui.post(()->{
+                        fastFile=file;
+                        try{fastUri=publishFastFile(file,name,mime);fastState="اكتمل";toast("اكتمل التنزيل السريع: "+name);}
+                        catch(Exception e){fastState="اكتمل داخل مجلد التطبيق";toast("اكتمل التنزيل، لكن تعذر نقله إلى مجلد Downloads");}
+                        fastTask=null;
+                    });
+                }
+                @Override public void onError(String message){
+                    ui.post(()->{fastState="فشل";fastTask=null;toast("فشل التنزيل السريع: "+message);});
+                }
+            });
+            fastTask.start();toast("بدأ التنزيل السريع");
+        }catch(Exception e){fastTask=null;toast("تعذر بدء التنزيل");}
+    }
+    private Uri publishFastFile(File file,String name,String mime) throws Exception {
+        if(Build.VERSION.SDK_INT>=29){
+            ContentValues values=new ContentValues();values.put(MediaStore.Downloads.DISPLAY_NAME,name);
+            values.put(MediaStore.Downloads.MIME_TYPE,mime==null?"application/octet-stream":mime);
+            values.put(MediaStore.Downloads.RELATIVE_PATH,Environment.DIRECTORY_DOWNLOADS+"/MiMaxAi");
+            values.put(MediaStore.Downloads.IS_PENDING,1);
+            Uri uri=getContentResolver().insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI,values);
+            if(uri==null)throw new Exception("تعذر إنشاء ملف التنزيل");
+            try(OutputStream out=getContentResolver().openOutputStream(uri);FileInputStream in=new FileInputStream(file)){
+                if(out==null)throw new Exception("تعذر حفظ الملف");
+                byte[] b=new byte[65536];int n;while((n=in.read(b))!=-1)out.write(b,0,n);
+            }
+            ContentValues done=new ContentValues();done.put(MediaStore.Downloads.IS_PENDING,0);getContentResolver().update(uri,done,null,null);
+            return uri;
+        }
+        return Uri.fromFile(file);
+    }
+    private void openFastDownload(){
+        if(fastUri==null){toast("الملف غير جاهز للفتح");return;}
+        try{String type=getContentResolver().getType(fastUri);if(type==null)type="*/*";
+            startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(fastUri,type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
+        }catch(Exception e){toast("لا يوجد تطبيق مناسب لفتح الملف");}
     }
     @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);if(web!=null)b.putString("url",web.getUrl());}
     @Override public void onBackPressed(){if(immersive){immersive=false;applyImmersive();}else if(web!=null&&web.canGoBack())web.goBack();else super.onBackPressed();}
