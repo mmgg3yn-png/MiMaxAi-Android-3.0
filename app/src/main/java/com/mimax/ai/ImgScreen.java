@@ -299,7 +299,7 @@ class ImgScreen {
         a.confirm("سيُعاد بناء super باستخدام أداة AOSP lpmake الحقيقية."
                 + "\n\nسيتم استخراج الأقسام الأصلية إلى مجلد مؤقت، ثم استخدام نسخ _edited عند وجودها."
                 + "\nسيُفحص الناتج بواسطة lpdump وlpunpack وتُقارن بيانات الأقسام."
-                + "\n\nالمساحة التقديرية: " + Io.human(needed)
+                + "\n\nالمساحة التقديرية: " + Io.human(workNeeded)
                 + "\nالمتاح: " + img.getAbsoluteFile().getParentFile().getUsableSpace()
                 + "\nالناتج الجديد: " + output.getPath()
                 + "\n\nلن يُكتب فوق super الأصلي.", () -> {
