@@ -95,7 +95,7 @@ final class ExtensionRuntime {
                 ExtensionScriptRuntime.execute(activity, extensionId, selectedFile);
                 ExtensionState.appendLog(activity, extensionId, "JavaScript extension completed.");
             } catch (Throwable error) {
-                ExtensionState.appendLog(activity, extensionId, "Extension script failed: " + error);
+                ExtensionState.recordFailure(activity, extensionId, error);
                 Toast.makeText(activity, "فشل تشغيل الإضافة: " + error.getMessage(), Toast.LENGTH_LONG).show();
             } finally {
                 ExtensionState.clearActive(activity);
