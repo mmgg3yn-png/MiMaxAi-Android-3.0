@@ -31,7 +31,7 @@ public final class Lp {
     public static class Device { public String name; public long firstLogicalSector, size; public int alignment, alignmentOffset, flags; }
 
     public static class Meta {
-        public int major, minor, slotCount, logicalBlockSize;
+        public int major, minor, slotCount, logicalBlockSize, headerFlags;
         public long maxSize, deviceSize, blockDeviceSize, firstLogicalSector;
         public boolean usedBackup, virtualAb;
         public List<Part> parts = new ArrayList<>();
@@ -113,7 +113,9 @@ public final class Lp {
         ByteBuffer H = ByteBuffer.wrap(hdr).order(ByteOrder.LITTLE_ENDIAN), T = ByteBuffer.wrap(tables).order(ByteOrder.LITTLE_ENDIAN);
         Meta m = new Meta();
         m.header = hdr; m.tables = tables; m.major = major; m.minor = minor;
-        m.virtualAb = hdr.length >= 132 && (ByteBuffer.wrap(hdr).order(ByteOrder.LITTLE_ENDIAN).getInt(128) & 1) != 0;
+        m.headerFlags = hdr.length >= 132
+                ? ByteBuffer.wrap(hdr).order(ByteOrder.LITTLE_ENDIAN).getInt(128) : 0;
+        m.virtualAb = (m.headerFlags & 1) != 0;
         m.po = H.getInt(80) & 0xFFFFFFFFL; m.pn = H.getInt(84) & 0xFFFFFFFFL; m.pe = H.getInt(88) & 0xFFFFFFFFL;
         m.eo = H.getInt(92) & 0xFFFFFFFFL; m.en = H.getInt(96) & 0xFFFFFFFFL; m.ee = H.getInt(100) & 0xFFFFFFFFL;
         m.go = H.getInt(104) & 0xFFFFFFFFL; m.gn = H.getInt(108) & 0xFFFFFFFFL; m.ge = H.getInt(112) & 0xFFFFFFFFL;
@@ -171,7 +173,7 @@ public final class Lp {
     public static boolean sameLayout(Meta a, Meta b) {
         if (a == null || b == null || a.major != b.major || a.minor != b.minor
                 || a.slotCount != b.slotCount || a.maxSize != b.maxSize
-                || a.logicalBlockSize != b.logicalBlockSize || a.virtualAb != b.virtualAb
+                || a.logicalBlockSize != b.logicalBlockSize || a.headerFlags != b.headerFlags || a.virtualAb != b.virtualAb
                 || a.parts.size() != b.parts.size() || a.groups.size() != b.groups.size()
                 || a.devices.size() != b.devices.size()) return false;
         for (int i = 0; i < a.devices.size(); i++) {
