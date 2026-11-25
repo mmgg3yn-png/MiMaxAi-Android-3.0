@@ -47,7 +47,7 @@ public class DeveloperStudioActivity extends Activity {
     private File currentProject;
     private File currentEditingFile;
     private boolean currentHtml;
-    private static final int IMPORT_PROJECT_FILE = 931;
+    private static final int IMPORT_PROJECT_FILE = 931;\n    private static final int PICK_APP_ICON = 932;\n    private File selectedProjectIcon;
 
     private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
     private void toast(String s) { Toast.makeText(this, s, Toast.LENGTH_LONG).show(); }
@@ -223,28 +223,63 @@ public class DeveloperStudioActivity extends Activity {
     private void buildLocalApk() {
         if (currentProject == null) { toast("افتح مشروعاً أولاً"); return; }
         saveSource();
-        final File project = currentProject;
-        final boolean html = currentHtml;
-        statusUpdate("جاري تجهيز APK محلياً على الهاتف...");
-        new Thread(() -> {
-            try {
-                File apk = LocalApkBuilder.build(this, project, html, project.getName());
-                runOnUiThread(() -> {
-                    pendingApk = apk;
-                    Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                    save.addCategory(Intent.CATEGORY_OPENABLE);
-                    save.setType("application/vnd.android.package-archive");
-                    save.putExtra(Intent.EXTRA_TITLE, apk.getName());
-                    statusUpdate("اكتمل بناء APK محلياً. اختر مكان حفظه.");
-                    startActivityForResult(save, SAVE_APK);
-                });
-            } catch (Exception e) {
-                runOnUiThread(() -> {
-                    statusUpdate("فشل البناء المحلي: " + e.getMessage());
-                    toast("فشل بناء APK محلياً: " + e.getMessage());
-                });
-            }
-        }).start();
+        LinearLayout form = new LinearLayout(this);
+        form.setOrientation(LinearLayout.VERTICAL);
+        form.setPadding(dp(12), dp(4), dp(12), dp(4));
+        EditText appTitle = new EditText(this);
+        appTitle.setSingleLine(true);
+        appTitle.setHint("اسم التطبيق");
+        appTitle.setText(currentProject.getName());
+        EditText packageName = new EditText(this);
+        packageName.setSingleLine(true);
+        packageName.setHint("com.example.myapp");
+        String segment = currentProject.getName().toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9_]", "_");
+        if (segment.isEmpty() || !Character.isLetter(segment.charAt(0))) segment = "project_" + segment;
+        packageName.setText("com.mimax.generated." + segment);
+        form.addView(label("اسم التطبيق الظاهر", 13, 0xFF536273));
+        form.addView(appTitle);
+        form.addView(label("اسم الحزمة (Package ID)", 13, 0xFF536273));
+        form.addView(packageName);
+        Button iconButton = button(selectedProjectIcon == null ? "اختيار أيقونة من الهاتف" : "تغيير الأيقونة المحددة", () -> {
+            Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+            pick.addCategory(Intent.CATEGORY_OPENABLE);
+            pick.setType("image/*");
+            startActivityForResult(pick, PICK_APP_ICON);
+        });
+        form.addView(iconButton);
+        form.addView(label("سيتم تضمين الأيقونة كاختصار قابل للإضافة إلى الشاشة الرئيسية عند فتح التطبيق الناتج.", 11, 0xFF64748B));
+        new AlertDialog.Builder(this).setTitle("إعدادات APK")
+            .setView(form).setNegativeButton("إلغاء", null)
+            .setPositiveButton("إنشاء APK", (dialog, which) -> {
+                String title = appTitle.getText().toString().trim();
+                String pkg = packageName.getText().toString().trim();
+                if (title.isEmpty() || !pkg.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*){1,7}")) {
+                    toast("تحقق من اسم التطبيق واسم الحزمة"); return;
+                }
+                final File project = currentProject;
+                final boolean html = currentHtml;
+                final File icon = selectedProjectIcon;
+                statusUpdate("جاري تجهيز APK ومحاذاته وتوقيعه على الهاتف...");
+                new Thread(() -> {
+                    try {
+                        File apk = LocalApkBuilder.build(this, project, html, title, pkg, icon);
+                        runOnUiThread(() -> {
+                            pendingApk = apk;
+                            Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                            save.addCategory(Intent.CATEGORY_OPENABLE);
+                            save.setType("application/vnd.android.package-archive");
+                            save.putExtra(Intent.EXTRA_TITLE, apk.getName());
+                            statusUpdate("اكتمل البناء. اختر مكان حفظ APK.");
+                            startActivityForResult(save, SAVE_APK);
+                        });
+                    } catch (Exception e) {
+                        runOnUiThread(() -> {
+                            statusUpdate("فشل البناء المحلي: " + e.getMessage());
+                            toast("فشل بناء APK محلياً: " + e.getMessage());
+                        });
+                    }
+                }).start();
+            }).show();
     }
 
     private void showPythonRuntimeInfo() {
@@ -520,6 +555,15 @@ public class DeveloperStudioActivity extends Activity {
                 toast("تم استيراد الملف: " + name);
                 showProjectFiles();
             } catch (Exception e) { toast("فشل استيراد الملف: " + e.getMessage()); }
+        }
+        if (request == PICK_APP_ICON && result == RESULT_OK && data != null && data.getData() != null) {
+            try (InputStream in = getContentResolver().openInputStream(data.getData());
+                 FileOutputStream out = new FileOutputStream(new File(getCacheDir(), "mimax-project-icon.png"))) {
+                byte[] buffer = new byte[8192]; int n;
+                while ((n = in.read(buffer)) != -1) out.write(buffer, 0, n);
+                selectedProjectIcon = new File(getCacheDir(), "mimax-project-icon.png");
+                toast("تم اختيار الأيقونة. اضغط إنشاء APK للمتابعة.");
+            } catch (Exception e) { toast("تعذر قراءة الأيقونة: " + e.getMessage()); }
         }
         if (request == SAVE_APK && result == RESULT_OK && data != null && data.getData() != null && pendingApk != null) {
             try (InputStream in = new FileInputStream(pendingApk); OutputStream out = getContentResolver().openOutputStream(data.getData())) {
