@@ -1592,6 +1592,7 @@ public class MainActivity extends Activity {
         p.addView(row("MEM", "الذاكرة", "ما يتذكره عنك (" + mem.size() + ")", v -> openSub("mem")));
         p.addView(row("DL", "إعدادات التنزيل", "خادم تنزيل لمواقع مثل يوتيوب", v -> openSub("dl")));
         p.addView(row("WEB", "المتصفح المدمج", "تصفح المواقع والتنزيلات داخل التطبيق", v -> startActivity(new Intent(MainActivity.this, BrowserActivity.class))));
+        p.addView(row("WEB+", "اختصارات المواقع", "عرض وإدارة أسماء المواقع المحفوظة في المتصفح", v -> { Intent bi = new Intent(MainActivity.this, BrowserActivity.class); bi.putExtra("manage_shortcuts", true); startActivity(bi); }));
         p.addView(row("TERM", "Terminal محلي", "أوامر Android داخل مساحة عمل آمنة", v -> startActivity(new Intent(MainActivity.this, TerminalActivity.class))));
         p.addView(row("AGENT", "AI Agent", "تحليل ملفات مساحة العمل وإنشاء تعديلات بموافقتك", v -> startActivity(new Intent(MainActivity.this, AgentActivity.class))));
         p.addView(row("MT1", "الإضافات وAI Extension Creator", "تثبيت حزم .mt1 وإنشاء إضافات بالذكاء الاصطناعي", v -> startActivity(new Intent(MainActivity.this, ExtensionActivity.class))));
