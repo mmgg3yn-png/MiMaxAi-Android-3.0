@@ -154,6 +154,7 @@ class ImgScreen {
             final File stage = unique(new File(parent, base(img) + "_part_stage"));
             final boolean openAfter = w == 1;
             a.runBgP("AOSP lpunpack — " + pt.name, null, progress -> {
+                LpTools.requireUnpackCompatible(meta);
                 if (info.sparse) {
                     Io.checkSpace(parent, info.rawSize + pt.size);
                     Sparse.toRaw(img, raw, progress, null);
@@ -196,6 +197,7 @@ class ImgScreen {
             final Io.Cancel cancel = new Io.Cancel();
             final String[] report = new String[1];
             a.runBgP("AOSP lpunpack — استخراج الأقسام", cancel, progress -> {
+                LpTools.requireUnpackCompatible(meta);
                 Io.checkSpace(parent, required);
                 if (info.sparse) Sparse.toRaw(img, raw, progress, cancel);
                 if (!stage.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد مؤقت للاستخراج");
@@ -291,6 +293,7 @@ class ImgScreen {
                 + "\nلن يتغير super الأصلي.", () -> {
             final Io.Cancel cancel = new Io.Cancel();
             a.runBgP("AOSP lpunpack — استخراج الأقسام المحددة", cancel, progress -> {
+                LpTools.requireUnpackCompatible(meta);
                 Io.checkSpace(parent, required);
                 if (info.sparse) Sparse.toRaw(img, raw, progress, cancel);
                 File stage = unique(new File(parent, base(img) + "_selected_stage"));
@@ -339,9 +342,7 @@ class ImgScreen {
                 Io.checkSpace(work, workNeeded);
                 Io.checkSpace(output.getAbsoluteFile().getParentFile(),
                         alsoSparse ? meta.totalSize() : meta.deviceSize);
-                if (meta.devices.size() != 1) {
-                    throw new com.mimax.ai.engine.Io.Unsupported("إعادة التجميع الحالية تتطلب super بجهاز كتل واحد؛ لم يتم تغيير الصورة.");
-                }
+                LpTools.requireUnpackCompatible(meta);
                 for (int slot = 1; slot < meta.slotCount; slot++) {
                     final int slotNumber = slot;
                     final Lp.Meta[] otherSlot = new Lp.Meta[1];
