@@ -43,3 +43,11 @@
 
 ## رفع مشروع الوكيل وبناؤه
 من شاشة AI Agent في التطبيق، أدخل عنوان PC Bridge والرمز، ثم اضغط «رفع مساحة العمل إلى الكمبيوتر». سيستقبل PC Bridge المشروع داخل `workspace/agent_upload` دون مسح الملفات الأخرى في مجلد العمل. بعد ذلك اضغط «بناء APK على الكمبيوتر». يلزم تثبيت Gradle وAndroid SDK وضبط `ANDROID_HOME` على الكمبيوتر.
+
+## بناء مشاريع Mi_Max Ai Developer Studio
+
+- HTML: يبني التطبيق حاوية Android أصلية تستخدم WebView لعرض `main.html`. يحتاج Gradle 8.7 وAndroid SDK على الكمبيوتر.
+- Python: يستخدم Kivy مع Buildozer. يتطلب كمبيوتر Linux (ليس Windows مباشرة) مع Buildozer وAndroid SDK/NDK. يخرج APK من مجلد `bin`.
+- التطبيق يرفع مجلد البناء المحدد إلى `agent_upload` ثم يستدعي مسار البناء المخصص. لا يُقبل أمر shell عشوائي من هذه الميزة.
+- تنزيل APK يتم من مسارات محددة فقط بعد نجاح البناء: `/download/html-apk` أو `/download/python-apk`. تتطلب جميع المسارات رمز PC Bridge.
+- لا تشغّل PC Bridge على شبكة عامة. مشروع Python الذي تختار بناءه هو كودك وسيُعالج على الكمبيوتر الذي تملكه؛ لا ترفع مشاريع لا تثق بها.
