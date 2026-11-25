@@ -126,7 +126,7 @@ public class DeveloperStudioActivity extends Activity {
 
     private void createProject(boolean html) {
         final String[] ids = html ? new String[]{"html/basic","html/offline","html/multipage"} : new String[]{"python/kivy","python/canvas"};
-        final String[] labels = html ? new String[]{"HTML أساسي","HTML يعمل دون إنترنت","موقع متعدد الصفحات"} : new String[]{"Python + Kivy","Python + Kivy Canvas"};
+        final String[] labels = html ? new String[]{"HTML أساسي","HTML يعمل دون إنترنت","موقع متعدد الصفحات"} : new String[]{"Python محلي (Pyodide)","Python + Canvas"};
         new AlertDialog.Builder(this).setTitle(html ? "اختر قالب HTML" : "اختر قالب Python")
             .setItems(labels,(d,w)->promptProjectName(html,ids[w])).setNegativeButton("إلغاء",null).show();
     }
