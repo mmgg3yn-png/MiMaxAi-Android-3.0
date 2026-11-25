@@ -53,7 +53,7 @@ jobs:
         shell: bash
         run: |
           python3 - <<'PY'
-          import json, os, pathlib, zipfile
+          import json, os, pathlib, zipfile, html
           d=pathlib.Path("${{ steps.project.outputs.dir }}")
           m=json.loads((d/"project.json").read_text())
           kind=m.get("type")
