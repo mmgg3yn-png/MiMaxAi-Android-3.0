@@ -43,7 +43,16 @@ for old, new in replacements.items():
     if old not in s:
         raise SystemExit(f"Expected upstream make.sh token missing: {old}")
     s = s.replace(old, new)
-p.write_text(s)
+    lpdump_link = next((line for line in s.splitlines() if "-o ../bin/lpdump " in line), None)
+    if not lpdump_link:
+        raise SystemExit("Expected upstream lpdump link command missing")
+    sparse_links = (
+        '\\n${{CPP} -std=c++17 -I../lib/include ${{CFLAGS} -D_FILE_OFFSET_BITS=64 -o ../bin/simg2img ../lib/libsparse/simg2img.cpp ../lib/lib/libsparse.a ../lib/lib/libz.a ../lib/lib/libbase.a ../lib/lib/fmtlib.a ../lib/lib/liblog.a -pthread ${{LDFLAGS}'
+        '\\n${{CPP} -std=c++17 -I../lib/include ${{CFLAGS} -D_FILE_OFFSET_BITS=64 -o ../bin/img2simg ../lib/libsparse/img2simg.cpp ../lib/lib/libsparse.a ../lib/lib/libz.a ../lib/lib/libbase.a ../lib/lib/fmtlib.a ../lib/lib/liblog.a -pthread ${{LDFLAGS}'
+    )
+    s = s.replace(lpdump_link, lpdump_link + sparse_links)
+    s = s.replace("$STRIP bin/lpdump", "$STRIP bin/lpdump\\n$STRIP bin/simg2img\\n$STRIP bin/img2simg")
+    p.write_text(s)
 PY
 }
 
@@ -62,7 +71,7 @@ build_abi() {
 
   (cd "$WORK" && bash ./make.sh)
 
-  for tool in lpunpack lpmake lpdump; do
+  for tool in lpunpack lpmake lpdump simg2img img2simg; do
     test -s "$WORK/bin/$tool"
     install -m 0755 "$WORK/bin/$tool" "$out/$tool"
   done
