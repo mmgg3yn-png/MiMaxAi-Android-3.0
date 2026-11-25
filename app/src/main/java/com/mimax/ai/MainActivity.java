@@ -195,6 +195,19 @@ public class MainActivity extends Activity {
             if (reopenLook) { reopenLook = false; openSub("look"); }
             if (reopenDev) { reopenDev = false; openSub("devopts"); }
         } else showChat();
+        if (getIntent() != null && getIntent().getBooleanExtra("ask_widget", false)) {
+            if (input != null) {
+                input.setHint("اكتب سؤالك للذكاء الاصطناعي...");
+                input.requestFocus();
+                ui.postDelayed(() -> {
+                    try {
+                        ((android.view.inputmethod.InputMethodManager)getSystemService(INPUT_METHOD_SERVICE))
+                            .showSoftInput(input, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT);
+                    } catch (Exception ignored) { }
+                }, 350);
+            }
+            getIntent().removeExtra("ask_widget");
+        }
     }
 
     @Override
