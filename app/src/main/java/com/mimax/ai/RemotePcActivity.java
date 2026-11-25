@@ -80,6 +80,7 @@ public class RemotePcActivity extends Activity {
         root.addView(back, new LinearLayout.LayoutParams(-1, dp(42)));
         back.setOnClickListener(v -> finish());
         setContentView(root);
+        AppPalette.apply(this, root);
     }
 
     private EditText field(String label, String value) {
