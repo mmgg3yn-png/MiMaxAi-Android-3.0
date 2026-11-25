@@ -40,6 +40,7 @@ import android.widget.Toast;
 import org.json.JSONArray;
 
 import java.util.ArrayList;
+import java.util.Locale;
 
 public class BrowserActivity extends Activity {
     private WebView web;
@@ -209,65 +210,65 @@ public class BrowserActivity extends Activity {
             .setNeutralButton("مسح", (d,w)->{p.edit().remove(key).apply();toast("تم المسح");}).show();
     }
     private void showDownloads(){
-        DownloadManager dm=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
-        DownloadManager.Query q=new DownloadManager.Query();Cursor c=dm.query(q);
-        ArrayList<String> rows=new ArrayList<>();ArrayList<Long> ids=new ArrayList<>();
-        if(c!=null){while(c.moveToNext()){
-            String name=c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE));
-            int status=c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
-            String state=status==DownloadManager.STATUS_SUCCESSFUL?"مكتمل":status==DownloadManager.STATUS_FAILED?"فشل": "قيد التنزيل";
-            rows.add(name+" — "+state);ids.add(c.getLong(c.getColumnIndexOrThrow(DownloadManager.COLUMN_ID)));
-        }c.close();}
-        if(rows.isEmpty()){toast("لا توجد تنزيلات");return;}
-        new AlertDialog.Builder(this).setTitle("التنزيلات").setItems(rows.toArray(new String[0]),(d,w)->{
-            DownloadManager.Query one=new DownloadManager.Query().setFilterById(ids.get(w));Cursor x=dm.query(one);
-            if(x!=null&&x.moveToFirst()){
-                int st=x.getInt(x.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
-                String path=x.getString(x.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));x.close();
-                if(st==DownloadManager.STATUS_SUCCESSFUL&&path!=null)try{startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(Uri.parse(path),"*/*").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}catch(Exception e){toast("لا يوجد تطبيق لفتح الملف");}
-                else toast("التنزيل لم يكتمل بعد");
-            }else if(x!=null)x.close();
-        }).show();
-    }
-
-    private void createSiteShortcut(){
-        String url=web.getUrl();if(url==null)return;
-        EditText name=new EditText(this);name.setSingleLine(true);name.setHint("اسم الاختصار");
-        String pageTitle=web.getTitle();name.setText(pageTitle==null||pageTitle.trim().isEmpty()?url:pageTitle);
-        new AlertDialog.Builder(this).setTitle("اختصار الموقع").setMessage(url).setView(name)
-            .setNegativeButton("إلغاء",null).setPositiveButton("حفظ وتثبيت",(d,w)->{
-                String label=name.getText().toString().trim();if(label.isEmpty()){toast("اكتب اسم الاختصار");return;}
-                android.content.SharedPreferences p=getSharedPreferences(PREF,0);
-                JSONArray a;try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
-                try{org.json.JSONObject o=new org.json.JSONObject();o.put("name",label);o.put("url",url);a.put(o);p.edit().putString("site_shortcuts",a.toString()).apply();}catch(Exception ignored){}
-                if(Build.VERSION.SDK_INT>=26){
-                    ShortcutManager sm=getSystemService(ShortcutManager.class);
-                    if(sm!=null&&sm.isRequestPinShortcutSupported()){
-                        Intent launch=new Intent(this,BrowserActivity.class);launch.putExtra("open_url",url);
-                        ShortcutInfo si=new ShortcutInfo.Builder(this,"site_"+Integer.toHexString(url.hashCode()))
-                            .setShortLabel(label.length()>25?label.substring(0,25):label).setLongLabel(label)
-                            .setIcon(Icon.createWithResource(this,android.R.drawable.ic_menu_view)).setIntent(launch).build();
-                        sm.requestPinShortcut(si,null);
-                    }
+        final DownloadManager dm=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
+        LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setPadding(dp(10),dp(8),dp(10),dp(8));panel.setBackgroundColor(surfaceColor);
+        TextView heading=new TextView(this);heading.setText("مدير التنزيلات");heading.setTextSize(18);heading.setTextColor(textColor);heading.setPadding(0,0,0,dp(6));panel.addView(heading);
+        ScrollView scroll=new ScrollView(this);downloadRows=new LinearLayout(this);downloadRows.setOrientation(LinearLayout.VERTICAL);scroll.addView(downloadRows);
+        panel.addView(scroll,new LinearLayout.LayoutParams(-1,dp(420)));
+        AlertDialog dialog=new AlertDialog.Builder(this).setView(panel).setPositiveButton("إغلاق",null).create();
+        Runnable refresh=()->{
+            if(!dialog.isShowing())return;
+            downloadRows.removeAllViews();
+            DownloadManager.Query q=new DownloadManager.Query();Cursor cur=dm.query(q);
+            int count=0;
+            if(cur!=null){
+                while(cur.moveToNext()){
+                    count++;
+                    long id=cur.getLong(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_ID));
+                    String name=cur.getString(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE));
+                    int st=cur.getInt(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                    long got=cur.getLong(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
+                    long total=cur.getLong(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
+                    int pct=total>0?(int)Math.min(100,(got*100L)/total):0;
+                    String state=st==DownloadManager.STATUS_SUCCESSFUL?"اكتمل":st==DownloadManager.STATUS_FAILED?"فشل":st==DownloadManager.STATUS_PAUSED?"متوقف مؤقتاً":"ينزّل الآن";
+                    LinearLayout card=new LinearLayout(this);card.setOrientation(LinearLayout.VERTICAL);card.setPadding(dp(9),dp(6),dp(9),dp(6));
+                    GradientDrawable cardBg=new GradientDrawable();cardBg.setColor(tint(surfaceColor,accentColor,0.10f));cardBg.setCornerRadius(dp(12));card.setBackground(cardBg);
+                    TextView title=new TextView(this);title.setText(name+"  •  "+state);title.setTextColor(textColor);title.setTextSize(13);card.addView(title);
+                    TextView size=new TextView(this);size.setText(formatBytes(got)+" / "+(total>0?formatBytes(total):"غير معروف")+"  •  "+pct+"%");size.setTextColor(mutedColor);size.setTextSize(11);card.addView(size);
+                    ProgressBar bar=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);bar.setMax(100);bar.setProgress(pct);bar.setProgressTintList(android.content.res.ColorStateList.valueOf(accentColor));card.addView(bar,new LinearLayout.LayoutParams(-1,dp(5)));
+                    LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.RIGHT);
+                    Button open=new Button(this);open.setText("فتح");open.setTextSize(10);open.setMinHeight(dp(32));open.setOnClickListener(v->openDownload(dm,id));
+                    open.setEnabled(st==DownloadManager.STATUS_SUCCESSFUL);actions.addView(open);
+                    Button cancel=new Button(this);cancel.setText("إلغاء / حذف");cancel.setTextSize(10);cancel.setMinHeight(dp(32));cancel.setOnClickListener(v->{dm.remove(id);toast("تم إلغاء التنزيل وحذفه");});actions.addView(cancel);
+                    card.addView(actions);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.bottomMargin=dp(7);downloadRows.addView(card,cp);
                 }
-                toast("تم حفظ الاختصار. إذا وافق الهاتف سيظهر على الشاشة الرئيسية.");
-            }).show();
+                cur.close();
+            }
+            if(count==0){TextView empty=new TextView(this);empty.setText("لا توجد تنزيلات حالياً");empty.setTextColor(mutedColor);empty.setPadding(dp(8),dp(18),dp(8),dp(18));downloadRows.addView(empty);}
+        };
+        dialog.setOnDismissListener(d->ui.removeCallbacks(downloadRefresh));
+        dialog.setOnShowListener(d->{downloadRefresh=new Runnable(){@Override public void run(){refresh.run();if(dialog.isShowing())ui.postDelayed(this,1000);}};downloadRefresh.run();});
+        dialog.show();
     }
-    private void showSiteShortcuts(){
-        android.content.SharedPreferences p=getSharedPreferences(PREF,0);JSONArray a;
-        try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
-        ArrayList<String> labels=new ArrayList<>();ArrayList<String> urls=new ArrayList<>();
-        for(int i=0;i<a.length();i++){org.json.JSONObject o=a.optJSONObject(i);if(o!=null){labels.add(o.optString("name"));urls.add(o.optString("url"));}}
-        if(labels.isEmpty()){toast("لا توجد اختصارات محفوظة");return;}
-        new AlertDialog.Builder(this).setTitle("اختصارات المواقع").setItems(labels.toArray(new String[0]),(d,w)->web.loadUrl(urls.get(w)))
-            .setNeutralButton("إدارة", (d,w)->manageSiteShortcuts()).show();
+    private int tint(int base,int accent,float amount){return Theme.mix(base,accent,amount);}
+    private String formatBytes(long n){
+        if(n<0)return "غير معروف";if(n<1024)return n+" B";
+        if(n<1024*1024)return String.format(Locale.US,"%.1f KB",n/1024.0);
+        if(n<1024L*1024*1024)return String.format(Locale.US,"%.1f MB",n/(1024.0*1024));
+        return String.format(Locale.US,"%.2f GB",n/(1024.0*1024*1024));
     }
-    private void manageSiteShortcuts(){
-        android.content.SharedPreferences p=getSharedPreferences(PREF,0);JSONArray a;
-        try{a=new JSONArray(p.getString("site_shortcuts","[]"));}catch(Exception e){a=new JSONArray();}
-        ArrayList<String> labels=new ArrayList<>();for(int i=0;i<a.length();i++){org.json.JSONObject o=a.optJSONObject(i);if(o!=null)labels.add(o.optString("name"));}
-        if(labels.isEmpty()){toast("لا توجد اختصارات");return;}
-        new AlertDialog.Builder(this).setTitle("حذف اختصار").setItems(labels.toArray(new String[0]),(d,w)->{a.remove(w);p.edit().putString("site_shortcuts",a.toString()).apply();toast("تم حذف الاختصار من القائمة المحفوظة");}).setNegativeButton("إغلاق",null).show();
+    private void openDownload(DownloadManager dm,long id){
+        DownloadManager.Query q=new DownloadManager.Query().setFilterById(id);Cursor c=dm.query(q);
+        if(c==null)return;
+        try{if(c.moveToFirst()){
+            int st=c.getInt(c.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+            String path=c.getString(c.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI));
+            if(st==DownloadManager.STATUS_SUCCESSFUL&&path!=null){
+                Uri uri=Uri.parse(path);String mime=getContentResolver().getType(uri);if(mime==null)mime="*/*";
+                try{startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(uri,mime).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));}
+                catch(Exception e){toast("لا يوجد تطبيق لفتح هذا الملف");}
+            }else toast("الملف لم يكتمل تنزيله");
+        }}finally{c.close();}
     }
     private void findOnPage(){
         EditText q=new EditText(this);q.setSingleLine(true);q.setHint("النص المطلوب");
