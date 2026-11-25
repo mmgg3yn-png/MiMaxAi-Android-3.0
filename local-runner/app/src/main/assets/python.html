@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Python App</title>
+<style>
+body{font:15px system-ui;margin:0;padding:16px;background:#101827;color:#e5edf8}
+h2{margin:0 0 8px}p{color:#aab8cc;line-height:1.5}
+button{background:#3977e8;color:white;border:0;border-radius:10px;padding:12px 18px;font-size:15px}
+pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#080e18;border:1px solid #29364a;border-radius:10px;padding:12px;min-height:160px}
+#state{color:#8eb7ff}
+</style>
+<script src="python-source.js"></script>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.27.7/full/pyodide.js"></script>
+</head>
+<body>
+<h2>Python Project</h2>
+<p>يعمل كود Python محلياً داخل التطبيق باستخدام Pyodide. تنزيل بيئة التشغيل والمكتبات يحتاج اتصالاً بالإنترنت أول مرة. المكتبات ذات الامتدادات الأصلية الخاصة بأندرويد أو Kivy غير مدعومة هنا.</p>
+<p id="state">جاري تحميل بيئة Python...</p>
+<button id="run" disabled>تشغيل المشروع</button>
+<canvas id="python-canvas" width="320" height="180" style="display:block;max-width:100%;background:#fff;border-radius:10px;margin-top:12px"></canvas>
+<pre id="output"></pre>
+<script>
+const state=document.getElementById('state'), output=document.getElementById('output'), run=document.getElementById('run');
+let pyodide=null;
+function log(s){output.textContent+=String(s);output.scrollTop=output.scrollHeight;}
+(async()=>{
+ try{
+  pyodide=await loadPyodide({indexURL:'https://cdn.jsdelivr.net/pyodide/v0.27.7/full/'});
+  pyodide.setStdout({batched:s=>log(s+'\n')});
+  pyodide.setStderr({batched:s=>log(s+'\n')});
+  const reqs=window.MIMAX_PYTHON_REQUIREMENTS||[];
+  if(reqs.length){
+   state.textContent='جاري تثبيت مكتبات Python من الإنترنت...';
+   await pyodide.loadPackage('micropip');
+   await pyodide.runPythonAsync('import micropip\nawait micropip.install('+JSON.stringify(reqs)+')');
+  }
+  state.textContent='Python جاهز — يمكن تشغيل المشروع.';
+  run.disabled=false;
+ }catch(e){state.textContent='تعذر تجهيز Python: '+e;log(String(e));}
+})();
+run.addEventListener('click',async()=>{
+ if(!pyodide)return;
+ run.disabled=true;output.textContent='';state.textContent='جاري تشغيل main.py...';
+ try{await pyodide.runPythonAsync(window.MIMAX_PYTHON_SOURCE||'print("No main.py found")');state.textContent='انتهى التنفيذ.';}
+ catch(e){state.textContent='حدث خطأ أثناء التشغيل.';log(String(e));}
+ finally{run.disabled=false;}
+});
+</script>
+</body></html>
