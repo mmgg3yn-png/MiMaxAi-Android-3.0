@@ -125,7 +125,7 @@ build_abi() {
   export STRIP="$TOOLCHAIN/llvm-strip"
   export TARGET_ARCH="$arch"
   export CFLAGS="-O2 -fPIE -D_FILE_OFFSET_BITS=64 -fno-strict-aliasing -D_LIBCPP_ENABLE_CXX17_REMOVED_UNARY_BINARY_FUNCTION -D__ANDROID_SDK_VERSION__=30 -DMIMAX_LP_TOOLS_NO_CONTROL_FD -DMIMAX_LP_TOOLS_IMAGE_ONLY"
-  export LDFLAGS="-pie -llog -ldl"
+  export LDFLAGS="-static-libstdc++ -pie -llog -ldl"
 
   (cd "$WORK" && bash ./make.sh)
 
@@ -139,6 +139,10 @@ build_abi() {
     elf_header="$("$TOOLCHAIN/llvm-readelf" -h "$WORK/bin/$tool")"
     grep -q "Machine:.*$expected_machine" <<< "$elf_header" || { echo "$tool has wrong ELF architecture for $abi" >&2; exit 1; }
     grep -q "Type:.*DYN" <<< "$elf_header" || { echo "$tool is not a PIE executable" >&2; exit 1; }
+    if "$TOOLCHAIN/llvm-readelf" -d "$WORK/bin/$tool" | grep -q 'libc++_shared\\.so'; then
+      echo "$tool still depends on libc++_shared.so; standalone assets must be self-contained" >&2
+      exit 1
+    fi
     install -m 0755 "$WORK/bin/$tool" "$out/$tool"
     test -s "$out/$tool"
   done
