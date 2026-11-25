@@ -53,6 +53,13 @@ jobs:
       - name: Validate PC Bridge Python
         run: python -m py_compile pc-agent/mimax_pc_agent.py && python pc-agent/mimax_pc_agent.py --help
 
+      - name: Build local HTML and Python runner templates
+        run: |
+          gradle --no-daemon -p local-runner :app:assembleHtmlRelease :app:assemblePythonRelease
+          mkdir -p app/src/main/assets
+          cp local-runner/app/build/outputs/apk/html/release/app-html-release.apk app/src/main/assets/local_runner_html.apk
+          cp local-runner/app/build/outputs/apk/python/release/app-python-release.apk app/src/main/assets/local_runner_python.apk
+
       - name: Build Debug APK
         run: gradle --no-daemon :app:assembleDebug
 
