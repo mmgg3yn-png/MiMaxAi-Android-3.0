@@ -26,7 +26,14 @@ public final class ArchivePack {
             throw new IOException("لا يمكن إنشاء الأرشيف داخل المصدر نفسه");
         if (output.exists()) throw new IOException("ملف الناتج موجود بالفعل");
         List<File> entries = new ArrayList<>();
-        collect(source, entries, cancel);
+        if (source.isDirectory()) {
+            File[] children = source.listFiles();
+            if (children == null) throw new IOException("تعذر قراءة مجلد المصدر");
+            java.util.Arrays.sort(children, (a,b) -> a.getName().compareToIgnoreCase(b.getName()));
+            for (File child : children) collect(child, entries, cancel);
+        } else {
+            collect(source, entries, cancel);
+        }
         long total = 0;
         for (File f : entries) if (f.isFile()) total += f.length();
         long extra = metadataJson == null ? 0 : metadataJson.getBytes(StandardCharsets.UTF_8).length;
