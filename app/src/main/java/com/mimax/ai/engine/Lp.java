@@ -26,14 +26,17 @@ public final class Lp {
         public List<Vsrc.Seg> segs = new ArrayList<>();
     }
 
-    public static class Group { public String name; public long maxSize; }
+    public static class Group { public String name; public long maxSize; public int flags; }
+
+    public static class Device { public String name; public long firstLogicalSector, size; public int alignment, alignmentOffset, flags; }
 
     public static class Meta {
         public int major, minor, slotCount, logicalBlockSize;
         public long maxSize, deviceSize, blockDeviceSize, firstLogicalSector;
-        public boolean usedBackup;
+        public boolean usedBackup, virtualAb;
         public List<Part> parts = new ArrayList<>();
         public List<Group> groups = new ArrayList<>();
+        public List<Device> devices = new ArrayList<>();
         byte[] header, tables, geometry;
         long po, pn, pe, eo, en, ee, go, gn, ge, bo, bn, be;
         public long totalSize() { long t = 0; for (Part p : parts) t += p.size; return t; }
@@ -105,17 +108,32 @@ public final class Lp {
         ByteBuffer H = ByteBuffer.wrap(hdr).order(ByteOrder.LITTLE_ENDIAN), T = ByteBuffer.wrap(tables).order(ByteOrder.LITTLE_ENDIAN);
         Meta m = new Meta();
         m.header = hdr; m.tables = tables; m.major = major; m.minor = minor;
+        m.virtualAb = hdr.length >= 132 && (ByteBuffer.wrap(hdr).order(ByteOrder.LITTLE_ENDIAN).getInt(128) & 1) != 0;
         m.po = H.getInt(80) & 0xFFFFFFFFL; m.pn = H.getInt(84) & 0xFFFFFFFFL; m.pe = H.getInt(88) & 0xFFFFFFFFL;
         m.eo = H.getInt(92) & 0xFFFFFFFFL; m.en = H.getInt(96) & 0xFFFFFFFFL; m.ee = H.getInt(100) & 0xFFFFFFFFL;
         m.go = H.getInt(104) & 0xFFFFFFFFL; m.gn = H.getInt(108) & 0xFFFFFFFFL; m.ge = H.getInt(112) & 0xFFFFFFFFL;
         m.bo = H.getInt(116) & 0xFFFFFFFFL; m.bn = H.getInt(120) & 0xFFFFFFFFL; m.be = H.getInt(124) & 0xFFFFFFFFL;
         if (m.pe < 52 || m.ee < 24 || (m.gn > 0 && m.ge < 48) || (m.bn > 0 && m.be < 64)) throw new Io.Corrupt("أحجام مدخلات الجداول غير صالحة");
         if (m.po + m.pn * m.pe > ts || m.eo + m.en * m.ee > ts || m.go + m.gn * m.ge > ts || m.bo + m.bn * m.be > ts) throw new Io.Corrupt("جداول Metadata تتجاوز حجمها");
-        if (m.bn >= 1) { m.firstLogicalSector = T.getLong((int) m.bo); m.blockDeviceSize = T.getLong((int) m.bo + 16); }
+        for (long i = 0; i < m.bn; i++) {
+            int o = (int) (m.bo + i * m.be);
+            Device d = new Device();
+            d.firstLogicalSector = T.getLong(o);
+            d.alignment = T.getInt(o + 8);
+            d.alignmentOffset = T.getInt(o + 12);
+            d.size = T.getLong(o + 16);
+            d.name = Io.cstr(tables, o + 24, 36);
+            d.flags = T.getInt(o + 60);
+            m.devices.add(d);
+        }
+        if (!m.devices.isEmpty()) {
+            m.firstLogicalSector = m.devices.get(0).firstLogicalSector;
+            m.blockDeviceSize = m.devices.get(0).size;
+        }
         for (long i = 0; i < m.gn; i++) {
             int o = (int) (m.go + i * m.ge);
             Group g = new Group();
-            g.name = Io.cstr(tables, o, 36); g.maxSize = T.getLong(o + 40);
+            g.name = Io.cstr(tables, o, 36); g.flags = T.getInt(o + 36); g.maxSize = T.getLong(o + 40);
             m.groups.add(g);
         }
         for (long i = 0; i < m.pn; i++) {
