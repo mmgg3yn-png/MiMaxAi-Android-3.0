@@ -123,6 +123,8 @@ class ImgScreen {
         p.addView(a.note(meta.parts.size() + " قسم — المجموع " + Io.human(tot) + " من " + Io.human(meta.deviceSize)
                 + (meta.usedBackup ? "\nتنبيه: قُرئت Metadata من النسخة الاحتياطية." : "")
                 + "\nاضغط على القسم لتحديده، واضغط مطولاً لاستخراجه وفتحه."));
+        p.addView(a.note("محرك الصور: AOSP lpunpack / lpmake / lpdump — تشغيل محلي دون تنزيل أدوات وقت الاستخدام. "
+                + "الاستخراج الافتراضي من Metadata slot 0. إذا اختلفت فتحات A/B أو كانت الصورة موزعة على عدة أجهزة، يمنع التطبيق إعادة التجميع بدلاً من إنتاج super ناقص."));
         for (final Lp.Part pt : meta.parts) {
             final View r = a.row(sel.contains(pt.name) ? "☑" : "☐", pt.name, pt.size == 0 ? "فارغ (حجمه صفر)" : Io.human(pt.size)
                     + (pt.segs.size() > 1 ? " — " + pt.segs.size() + " امتدادات" : ""), v -> {
