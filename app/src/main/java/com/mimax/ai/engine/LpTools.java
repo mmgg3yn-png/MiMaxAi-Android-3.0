@@ -2,7 +2,6 @@ package com.mimax.ai.engine;
 
 import android.content.Context;
 import android.os.Build;
-import android.os.Process;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
@@ -27,7 +26,7 @@ public final class LpTools {
     private LpTools() { }
 
     public static String abi() throws IOException {
-        if (Build.VERSION.SDK_INT >= 23 && Process.is64Bit()) return "arm64-v8a";
+        if (Build.VERSION.SDK_INT >= 23 && android.os.Process.is64Bit()) return "arm64-v8a";
         for (String supported : Build.SUPPORTED_ABIS) {
             if ("armeabi-v7a".equals(supported)) return "armeabi-v7a";
         }
@@ -81,7 +80,7 @@ public final class LpTools {
         builder.redirectErrorStream(true);
         builder.directory(context.getFilesDir());
         builder.environment().put("LC_ALL", "C");
-        Process process = builder.start();
+        java.lang.Process process = builder.start();
         ByteArrayOutputStream captured = new ByteArrayOutputStream();
         Thread reader = new Thread(() -> {
             try (BufferedReader br = new BufferedReader(new InputStreamReader(
