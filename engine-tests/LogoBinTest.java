@@ -1,5 +1,7 @@
 import com.mimax.ai.engine.LogoBin;
 import com.mimax.ai.engine.Io;
+import com.mimax.ai.engine.ArchivePack;
+import com.mimax.ai.engine.Archives;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
@@ -60,7 +62,18 @@ public final class LogoBinTest {
         boolean rejected = false;
         try { LogoBin.inspect(broken); } catch (IOException expected) { rejected = true; }
         check(rejected, "invalid magic rejected");
-        System.out.println("LogoBinTest: 4 checks passed (parse, extract raw slots, lossless repack, corrupt header rejection)");
+        File packSource = new File(root, "addon-source");
+        File nested = new File(packSource, "assets/config.txt"); nested.getParentFile().mkdirs();
+        Files.write(nested.toPath(), "Mi_Max package".getBytes(StandardCharsets.UTF_8));
+        File addon = new File(root, "sample.mt1");
+        ArchivePack.create(packSource, addon, "META-INF/mimax/addon.json",
+                "{\\"format\\":\\"MiMaxAddon\\",\\"formatVersion\\":1}", null, null);
+        java.util.List<Archives.Item> archiveItems = Archives.list(addon);
+        check(archiveItems.stream().anyMatch(i -> i.name.equals("META-INF/mimax/addon.json")), "add-on metadata written");
+        File extracted = new File(root, "addon-extracted");
+        Archives.extract(addon, extracted, null, null, null);
+        check(new File(extracted, "addon-source/assets/config.txt").isFile(), "created package extracts");
+        System.out.println("LogoBinTest: 7 checks passed (logo parse/extract/repack/corruption + ZIP package create/metadata/extract)");
     }
     static void del(File f) throws IOException {
         File[] children = f.listFiles(); if (children != null) for (File c : children) del(c);
