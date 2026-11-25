@@ -76,6 +76,11 @@ util.write_text(u)
 # Exclude device-only fs_mgr/fstab integration; retain metadata and JSON dumping.
 dump = Path(sys.argv[1]).parent / "partition_tools" / "lpdump.cc"
 d = dump.read_text()
+# MergeMetadata uses BlockDeviceInfo, exposed by liblp's public opener header.
+include_anchor = "#include <liblp/liblp.h>"
+if include_anchor not in d:
+    raise SystemExit("Could not find liblp include in lpdump.cc")
+d = d.replace(include_anchor, include_anchor + "\\n#include <liblp/partition_opener.h>", 1)
 d = d.replace("#ifdef __ANDROID__\n#include <cutils/android_get_control_file.h>\n#include <fs_mgr.h>\n#endif",
               "#if defined(__ANDROID__) && !defined(MIMAX_LP_TOOLS_IMAGE_ONLY)\n#include <cutils/android_get_control_file.h>\n#include <fs_mgr.h>\n#endif", 1)
 # Keep the liblp namespace available: its public metadata API is still used for image files.
