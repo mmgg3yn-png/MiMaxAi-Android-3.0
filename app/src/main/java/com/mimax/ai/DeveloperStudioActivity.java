@@ -123,6 +123,7 @@ public class DeveloperStudioActivity extends Activity {
         root.addView(status);
         root.addView(button("العودة", this::finish));
         setContentView(root);
+        AppPalette.apply(this, root);
     }
 
     private void saveConnection() {
@@ -186,6 +187,7 @@ public class DeveloperStudioActivity extends Activity {
             root.addView(button("تحويل المشروع إلى APK", this::buildCurrentApk));
             root.addView(button("العودة للمشاريع", this::showHome));
             setContentView(root);
+        AppPalette.apply(this, root);
         } catch (Exception e) { toast("تعذر فتح المشروع: " + e.getMessage()); }
     }
 
@@ -208,6 +210,7 @@ public class DeveloperStudioActivity extends Activity {
         root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1));
         root.addView(button("العودة للمحرر", () -> openProject(currentProject, true)));
         setContentView(root);
+        AppPalette.apply(this, root);
     }
 
     private void buildCurrentApk() {
