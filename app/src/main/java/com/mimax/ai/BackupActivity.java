@@ -81,6 +81,7 @@ public class BackupActivity extends Activity {
         root.addView(back, new LinearLayout.LayoutParams(-1, dp(44)));
         back.setOnClickListener(v -> finish());
         setContentView(root);
+        AppPalette.apply(this, root);
     }
 
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
