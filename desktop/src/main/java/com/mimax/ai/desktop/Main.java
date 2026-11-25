@@ -254,9 +254,9 @@ public final class Main extends JFrame {
         if(c instanceof JTabbedPane){c.setBackground(PANEL);c.setForeground(FG);}
         else if(c instanceof JTextArea){c.setBackground(PANEL2);c.setForeground(FG);((JTextArea)c).setCaretColor(ACCENT);}
         else if(c instanceof JTextField){c.setBackground(PANEL2);c.setForeground(FG);((JTextField)c).setCaretColor(ACCENT);}
-        else if(c instanceof JButton){c.setBackground(PANEL2);c.setForeground(FG);}
+        else if(c instanceof JButton){c.setForeground(FG);}
         else if(c instanceof JLabel){c.setForeground(FG);}
-        else if(c instanceof JPanel){c.setBackground(BG);}
+        
         if(c instanceof Container)for(Component child:((Container)c).getComponents())applyAppearance(child);
     }
 
