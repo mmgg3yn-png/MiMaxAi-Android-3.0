@@ -137,6 +137,7 @@ class ImgScreen {
             render();
         }));
         p.addView(a.btn("استخراج الأقسام المحددة", a.AC, a.ON, v -> extractSelected()));
+        p.addView(a.btn("فك super بالطريقة التقليدية (Sparse → Raw → أقسام)", a.SF2, a.TX, v -> unpackTraditional()));
         p.addView(a.btn("إعادة تجميع super بالأقسام المعدَّلة", a.SF2, a.TX, v -> repack(false)));
         p.addView(a.btn("إعادة تجميع + حفظ نسخة Sparse", a.SF2, a.TX, v -> repack(true)));
         p.addView(a.note("طريقة التعديل: استخرج الأقسام ← افتح القسم (مثلاً system.img) وعدّل ملفاته فتُحفظ نسخة باسم <القسم>_edited.img بجانبه ← أعد التجميع، فتُستخدم النسخ المعدَّلة تلقائياً.\nيُكتب super جديد بجانب الأصل ولا يُلمس الأصل، والتطبيق لا يفلّش أي قسم."));
@@ -154,6 +155,56 @@ class ImgScreen {
     }
 
     FileScreen files() { return a.files; }
+
+    /**
+     * Traditional simg2img -> lpunpack workflow, implemented with the app's
+     * in-process Java readers. The source is never modified.
+     */
+    void unpackTraditional() {
+        final File dir = unique(partsDir());
+        final File raw = info.sparse ? unique(sibling(".raw.img")) : img;
+        final long rawBytes = info.sparse ? info.rawSize : 0;
+        final long partitionBytes = meta.totalSize();
+        final long required = rawBytes + partitionBytes;
+        String steps = info.sparse
+                ? "1) تحويل Sparse إلى Raw: " + Io.human(rawBytes)
+                    + "\n2) استخراج أقسام LP: " + Io.human(partitionBytes)
+                : "1) قراءة Raw مباشرة (لا حاجة للتحويل)"
+                    + "\n2) استخراج أقسام LP: " + Io.human(partitionBytes);
+        long available = img.getAbsoluteFile().getParentFile().getUsableSpace();
+        a.confirm("فك super بالطريقة التقليدية (simg2img ثم lpunpack)\n\n"
+                + steps + "\n\nمجلد الناتج: " + dir.getPath()
+                + "\nالمساحة المطلوبة تقريباً: " + Io.human(required)
+                + "\nالمساحة المتاحة: " + Io.human(available)
+                + "\n\nسيُحفظ Raw بجانب الصورة عند الحاجة، وتُستخرج الأقسام في مجلد جديد. لن يتغير الملف الأصلي.",
+                () -> {
+            final Io.Cancel cancel = new Io.Cancel();
+            a.runBgP("Sparse → Raw → LP partitions", cancel, progress -> {
+                if (required > 0) Io.checkSpace(img.getAbsoluteFile().getParentFile(), required);
+                if (info.sparse) Sparse.toRaw(img, raw, null, cancel);
+                if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الناتج: " + dir);
+                try (Vsrc.FileV source = new Vsrc.FileV(raw)) {
+                    Lp.Meta parsed = Lp.read(source);
+                    if (parsed.parts.isEmpty()) throw new java.io.IOException("لم يتم العثور على أقسام LP");
+                    long total = Math.max(1, parsed.totalSize());
+                    long completed = 0;
+                    for (Lp.Part part : parsed.parts) {
+                        if (cancel != null) cancel.check();
+                        if (part.size <= 0) continue;
+                        final long base = completed;
+                        File out = new File(dir, part.name + ".img");
+                        Lp.extract(source, part, out,
+                                (done, ignored) -> progress.on(base + done, total),
+                                cancel);
+                        completed += part.size;
+                    }
+                }
+            }, () -> a.showError("اكتمل استخراج أقسام super.\n"
+                    + (info.sparse ? "صورة Raw: " + raw.getPath() + "\n" : "")
+                    + "مجلد الأقسام: " + dir.getPath()
+                    + "\n\nيمكنك فتح ملفات الأقسام من مدير الملفات."));
+        });
+    }
 
     void extractSelected() {
         if (sel.isEmpty()) { a.toast("حدّد قسماً واحداً على الأقل"); return; }
