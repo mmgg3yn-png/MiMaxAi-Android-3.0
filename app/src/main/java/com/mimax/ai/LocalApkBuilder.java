@@ -43,8 +43,10 @@ public final class LocalApkBuilder {
     private static final String KEY_ALIAS = "mimax-local-project-signing-v1";
     private LocalApkBuilder() { }
 
-    public static File build(Context context, File project, boolean html, String title) throws Exception {
+    public static File build(Context context, File project, boolean html, String title, String packageName, File iconFile) throws Exception {
         if (project == null || !project.isDirectory()) throw new Exception("مجلد المشروع غير موجود");
+        if (packageName == null || !packageName.matches("[A-Za-z][A-Za-z0-9_]*(\\.[A-Za-z][A-Za-z0-9_]*){1,7}"))
+            throw new Exception("اسم الحزمة غير صالح");
         File main = new File(project, html ? "main.html" : "main.py");
         if (!main.isFile()) throw new Exception(html ? "ملف main.html غير موجود" : "ملف main.py غير موجود");
 
@@ -69,11 +71,17 @@ public final class LocalApkBuilder {
                 ZipEntry entry = entries.nextElement();
                 String name = entry.getName();
                 if (name.startsWith("META-INF/") || name.equals("assets/app-config.json")
-                        || name.startsWith("assets/site/") || name.equals("assets/python-source.js")) {
+                        || name.startsWith("assets/site/") || name.equals("assets/python-source.js") || name.equals("assets/app-icon.png")) {
                     continue;
                 }
                 ZipEntry copy = new ZipEntry(name);
-                if ("resources.arsc".equals(name)) {
+                if ("AndroidManifest.xml".equals(name)) {
+                    byte[] raw;
+                    try (InputStream in = source.getInputStream(entry)) { raw = readAll(in); }
+                    byte[] patched = BinaryManifestPatcher.patch(raw, packageName,
+                            title == null || title.trim().isEmpty() ? project.getName() : title.trim());
+                    addBytes(output, name, patched);
+                } else if ("resources.arsc".equals(name)) {
                     byte[] raw;
                     try (InputStream in = source.getInputStream(entry)) { raw = readAll(in); }
                     java.util.zip.CRC32 crc = new java.util.zip.CRC32();
@@ -82,7 +90,7 @@ public final class LocalApkBuilder {
                     copy.setSize(raw.length);
                     copy.setCompressedSize(raw.length);
                     copy.setCrc(crc.getValue());
-                    copy.setExtra(alignmentExtra(counted.getCount(), name));
+                    // apksig performs standards-compliant 4-byte alignment before signing.
                     output.putNextEntry(copy);
                     output.write(raw);
                 } else {
@@ -97,7 +105,7 @@ public final class LocalApkBuilder {
 
             JSONObject config = new JSONObject();
             config.put("type", html ? "html" : "python");
-            config.put("title", title == null ? project.getName() : title);
+            config.put("title", title == null ? project.getName() : title);\n            config.put("package", packageName);
             addBytes(output, "assets/app-config.json", config.toString().getBytes(StandardCharsets.UTF_8));
 
             if (html) {
@@ -179,19 +187,6 @@ public final class LocalApkBuilder {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         copy(in, out);
         return out.toByteArray();
-    }
-
-    // Android 11+ requires resources.arsc to be uncompressed and 4-byte aligned.
-    private static byte[] alignmentExtra(long offset, String name) throws Exception {
-        int nameLength = name.getBytes("UTF-8").length;
-        int padding = (int) ((4 - ((offset + 30 + nameLength + 4) & 3)) & 3);
-        if (padding == 0) return null;
-        byte[] extra = new byte[4 + padding];
-        extra[0] = 0x35;
-        extra[1] = (byte) 0xD9;
-        extra[2] = (byte) padding;
-        extra[3] = 0x00;
-        return extra;
     }
 
     private static final class CountingOutputStream extends FilterOutputStream {
