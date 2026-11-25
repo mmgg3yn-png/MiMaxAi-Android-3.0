@@ -126,6 +126,21 @@ public final class LpTools {
         }
     }
 
+    /** The pinned AOSP lpunpack implementation handles linear extents on one source device. */
+    public static void requireUnpackCompatible(Lp.Meta meta) throws IOException {
+        if (meta.devices.size() != 1) {
+            throw new Io.Unsupported("أداة lpunpack المضمّنة تدعم جهاز super واحداً فقط؛ هذه الصورة تستخدم عدة أجهزة.");
+        }
+        for (Lp.Part part : meta.parts) {
+            for (Vsrc.Seg seg : part.segs) {
+                if (seg.zero) {
+                    throw new Io.Unsupported("القسم " + part.name
+                            + " يحتوي امتداد LP من نوع ZERO، وهو غير مدعوم في إصدار lpunpack المضمّن.");
+                }
+            }
+        }
+    }
+
     public static List<String> lpmakeArgs(Lp.Meta meta, java.util.Map<String, File> images,
                                            File output, boolean sparse) throws IOException {
         if (meta.devices.size() != 1) {
