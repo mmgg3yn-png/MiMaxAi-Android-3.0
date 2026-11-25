@@ -45,6 +45,7 @@ public final class Main extends JFrame {
 
         JTabbedPane tabs = new JTabbedPane();
         tabs.addTab("الرئيسية", home());
+        tabs.addTab("الذكاء الاصطناعي", new AiPanel(this).view());
         tabs.addTab("أدوات ROM", rom());
         tabs.addTab("الأرشيف", archives());
         tabs.addTab("logo.bin", logo());
