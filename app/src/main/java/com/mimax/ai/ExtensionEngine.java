@@ -100,6 +100,15 @@ public final class ExtensionEngine {
             if(!id.matches("[a-zA-Z0-9._-]{3,64}")) throw new Exception("معرّف الإضافة غير صالح");
             if(m.optInt("apiVersion",0)>API_VERSION) throw new Exception("الإضافة تحتاج إصدار API أحدث");
             if(m.optInt("apiVersion",0)<1) throw new Exception("apiVersion مفقود أو غير صالح");
+            String type=m.optString("type","theme");
+            if(!"theme".equals(type) && !"ui".equals(type)) throw new Exception("نوع الإضافة غير مدعوم");
+            if("ui".equals(type)) {
+                File screen=new File(stage,"app/screen.json");
+                if(!screen.isFile() || screen.length()>256*1024) throw new Exception("إضافة الواجهة تحتاج app/screen.json صالحاً");
+                JSONObject spec=readJson(screen);
+                org.json.JSONArray components=spec.optJSONArray("components");
+                if(components==null || components.length()>40) throw new Exception("مكونات شاشة الإضافة غير صالحة");
+            }
             File target=new File(root,id);
             if(target.exists()) throw new Exception("هذه الإضافة مثبتة بالفعل. احذف النسخة الحالية أو استخدم معرّفاً مختلفاً.");
             if(!stage.renameTo(target)) throw new Exception("تعذر اعتماد ملفات الإضافة");
@@ -124,8 +133,8 @@ public final class ExtensionEngine {
                 prefs.edit().putBoolean("enabled_"+other.id,false).apply();
         }
         prefs.edit().putBoolean("enabled_"+id,enabled).apply();
-        if(enabled) applyTheme(item);
-        else if(!hasEnabledTheme()) resetTheme(prefs);
+        if(enabled && "theme".equals(item.manifest.optString("type","theme"))) applyTheme(item);
+        else if(!enabled && "theme".equals(item.manifest.optString("type","theme")) && !hasEnabledTheme()) resetTheme(prefs);
     }
 
     public void delete(String id) throws Exception {
@@ -133,12 +142,12 @@ public final class ExtensionEngine {
         android.content.SharedPreferences prefs=app.getSharedPreferences("mm_extensions",0);
         prefs.edit().remove("enabled_"+id).apply();
         deleteTree(item.dir);
-        if(!hasEnabledTheme()) resetTheme(prefs);
+        if("theme".equals(item.manifest.optString("type","theme")) && !hasEnabledTheme()) resetTheme(prefs);
     }
 
     public void applyEnabledThemes() {
         List<Item> all=list();
-        for(Item i:all) if(i.enabled) { try { applyTheme(i); } catch(Exception ignored){} }
+        for(Item i:all) if(i.enabled && "theme".equals(i.manifest.optString("type","theme"))) { try { applyTheme(i); } catch(Exception ignored){} }
     }
 
     private void applyTheme(Item item) throws Exception {
