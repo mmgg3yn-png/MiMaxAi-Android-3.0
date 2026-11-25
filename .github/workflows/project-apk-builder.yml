@@ -1,0 +1,239 @@
+name: Mi_Max Ai Project APK Builder
+
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'builder-input/**/project.zip'
+  workflow_dispatch:
+    inputs:
+      job_id:
+        description: Builder job folder under builder-input (for example job-123)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mimax-project-builder-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-project:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Select uploaded project
+        id: project
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            JOB_ID="${{ inputs.job_id }}"
+            ZIP="builder-input/$JOB_ID/project.zip"
+          else
+            ZIP="$(git diff --name-only "${{ github.event.before }}" "${{ github.sha }}" | grep -E '^builder-input/[^/]+/project\.zip$' | tail -n 1 || true)"
+          fi
+          if [ -z "$ZIP" ] || [ ! -f "$ZIP" ]; then
+            echo "No uploaded builder project.zip was found." >&2
+            exit 1
+          fi
+          DIR="$(dirname "$ZIP")"
+          test -f "$DIR/project.json"
+          echo "dir=$DIR" >> "$GITHUB_OUTPUT"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Read project metadata and unpack
+        id: meta
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json, os, pathlib, zipfile
+          d=pathlib.Path("${{ steps.project.outputs.dir }}")
+          m=json.loads((d/"project.json").read_text())
+          kind=m.get("type")
+          title=m.get("title","My App")
+          package=m.get("package","com.example.generated")
+          if kind not in ("html","python"): raise SystemExit("Unsupported project type")
+          import re
+          if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]*(\.[A-Za-z][A-Za-z0-9_]*){1,7}", package):
+              raise SystemExit("Invalid Android package name")
+          out=pathlib.Path("project-src")
+          out.mkdir(exist_ok=True)
+          with zipfile.ZipFile(d/"project.zip") as z:
+              for item in z.infolist():
+                  p=pathlib.PurePosixPath(item.filename)
+                  if p.is_absolute() or ".." in p.parts: raise SystemExit("Unsafe archive path")
+                  target=out.joinpath(*p.parts)
+                  if item.is_dir(): target.mkdir(parents=True,exist_ok=True)
+                  else:
+                      target.parent.mkdir(parents=True,exist_ok=True)
+                      target.write_bytes(z.read(item))
+          if kind=="html" and not (out/"main.html").is_file():
+              raise SystemExit("HTML project must contain main.html")
+          if kind=="python" and not (out/"main.py").is_file():
+              raise SystemExit("Python project must contain main.py")
+          with open(os.environ["GITHUB_OUTPUT"],"a") as f:
+              f.write(f"type={kind}\n")
+              f.write(f"title={title}\n")
+              f.write(f"package={package}\n")
+          PY
+
+      - name: Set up Java
+        if: steps.meta.outputs.type == 'html'
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        if: steps.meta.outputs.type == 'html'
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Build HTML project as Android WebView APK
+        if: steps.meta.outputs.type == 'html'
+        shell: bash
+        env:
+          APP_TITLE: ${{ steps.meta.outputs.title }}
+          APP_PACKAGE: ${{ steps.meta.outputs.package }}
+        run: |
+          mkdir -p html-wrapper/app/src/main/assets
+          cp -R project-src/. html-wrapper/app/src/main/assets/
+          mkdir -p "html-wrapper/app/src/main/java/$(echo "$APP_PACKAGE" | tr . /)"
+          cat > html-wrapper/settings.gradle <<'EOF'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name = 'MiMaxGeneratedHtml'
+          include ':app'
+          EOF
+          echo "plugins { id 'com.android.application' version '8.5.2' apply false }" > html-wrapper/build.gradle
+          cat > html-wrapper/app/build.gradle <<'EOF'
+          plugins { id 'com.android.application' }
+          android {
+              namespace System.getenv('APP_PACKAGE')
+              compileSdk 34
+              defaultConfig {
+                  applicationId System.getenv('APP_PACKAGE')
+                  minSdk 23
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+          cat > "html-wrapper/app/src/main/java/$(echo "$APP_PACKAGE" | tr . /)/MainActivity.java" <<'JAVA'
+          package PLACEHOLDER_PACKAGE;
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebChromeClient;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+          public class MainActivity extends Activity {
+              @Override public void onCreate(Bundle state) {
+                  super.onCreate(state);
+                  WebView web = new WebView(this);
+                  web.getSettings().setJavaScriptEnabled(true);
+                  web.getSettings().setDomStorageEnabled(true);
+                  web.setWebViewClient(new WebViewClient());
+                  web.setWebChromeClient(new WebChromeClient());
+                  setContentView(web);
+                  web.loadUrl("file:///android_asset/main.html");
+              }
+          }
+          JAVA
+          sed -i "s/PLACEHOLDER_PACKAGE/$APP_PACKAGE/" "html-wrapper/app/src/main/java/$(echo "$APP_PACKAGE" | tr . /)/MainActivity.java"
+          cat > html-wrapper/app/src/main/AndroidManifest.xml <<EOF
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+            <application android:label="$APP_TITLE" android:theme="@android:style/Theme.Material.Light.NoActionBar">
+              <activity android:name=".MainActivity" android:exported="true">
+                <intent-filter>
+                  <action android:name="android.intent.action.MAIN"/>
+                  <category android:name="android.intent.category.LAUNCHER"/>
+                </intent-filter>
+              </activity>
+            </application>
+          </manifest>
+          EOF
+          cd html-wrapper
+          gradle --no-daemon assembleDebug
+          mkdir -p ../output
+          cp app/build/outputs/apk/debug/*.apk ../output/
+
+      - name: Set up Python for Buildozer
+        if: steps.meta.outputs.type == 'python'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Android build prerequisites
+        if: steps.meta.outputs.type == 'python'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y git zip unzip openjdk-17-jdk build-essential ccache libffi-dev libssl-dev             automake autoconf libtool pkg-config zlib1g-dev libncurses5-dev libncursesw5-dev cmake
+          python -m pip install --upgrade pip
+          python -m pip install buildozer cython==0.29.36
+
+      - name: Build Python project with Buildozer and python-for-android
+        if: steps.meta.outputs.type == 'python'
+        env:
+          APP_TITLE: ${{ steps.meta.outputs.title }}
+          APP_PACKAGE: ${{ steps.meta.outputs.package }}
+        shell: bash
+        run: |
+          cd project-src
+          REQS="python3,kivy"
+          if [ -f requirements.txt ]; then
+            EXTRA="$(grep -vE '^\s*(#|$)' requirements.txt | paste -sd, -)"
+            if [ -n "$EXTRA" ]; then REQS="$REQS,$EXTRA"; fi
+          fi
+          cat > buildozer.spec <<EOF
+          [app]
+          title = $APP_TITLE
+          package.name = $(basename "$APP_PACKAGE" | tr -cd 'A-Za-z0-9_')
+          package.domain = $(echo "$APP_PACKAGE" | sed 's/\.[^.]*$//')
+          source.dir = .
+          source.include_exts = py,kv,png,jpg,jpeg,json,txt,html,css,js,ttf,otf,atlas
+          version = 1.0
+          requirements = $REQS
+          orientation = portrait
+          fullscreen = 0
+          android.api = 34
+          android.minapi = 23
+          android.archs = armeabi-v7a, arm64-v8a
+          android.accept_sdk_license = True
+          p4a.bootstrap = sdl2
+
+          [buildozer]
+          log_level = 2
+          warn_on_root = 0
+          EOF
+          buildozer -v android debug
+          mkdir -p ../output
+          find bin -maxdepth 1 -type f -name '*.apk' -exec cp {} ../output/ \;
+
+      - name: Upload generated APK
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiMax-Project-APK-${{ github.run_number }}
+          path: output/*.apk
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: MiMax-Project-Build-Logs-${{ github.run_number }}
+          path: |
+            project-src/.buildozer/**/*.log
+            project-src/.buildozer/**/*.txt
+          if-no-files-found: ignore
+          retention-days: 7
