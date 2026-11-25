@@ -38,4 +38,29 @@ public class MainActivity extends Activity {
         web.loadUrl("file:///android_asset/" + ("python".equals(type) ? "python.html" : "site/main.html"));
         createProjectShortcut(title);
     }
+
+    private void createProjectShortcut(String title) {
+        if (android.os.Build.VERSION.SDK_INT < 26) return;
+        try {
+            if (getPreferences(MODE_PRIVATE).getBoolean("project_shortcut_requested", false)) return;
+            ShortcutManager manager = getSystemService(ShortcutManager.class);
+            if (manager == null || !manager.isRequestPinShortcutSupported()) return;
+            Bitmap bitmap;
+            try (InputStream icon = getAssets().open("app-icon.png")) {
+                bitmap = BitmapFactory.decodeStream(icon);
+            } catch (Exception missingIcon) { return; }
+            if (bitmap == null) return;
+            Intent launch = new Intent(this, MainActivity.class);
+            launch.setAction(Intent.ACTION_VIEW);
+            ShortcutInfo shortcut = new ShortcutInfo.Builder(this, "mimax-project-shortcut")
+                    .setShortLabel(title.length() > 25 ? title.substring(0, 25) : title)
+                    .setLongLabel(title)
+                    .setIcon(Icon.createWithBitmap(bitmap))
+                    .setIntent(launch)
+                    .build();
+            if (manager.requestPinShortcut(shortcut, null)) {
+                getPreferences(MODE_PRIVATE).edit().putBoolean("project_shortcut_requested", true).apply();
+            }
+        } catch (Exception ignored) { }
+    }
 }
