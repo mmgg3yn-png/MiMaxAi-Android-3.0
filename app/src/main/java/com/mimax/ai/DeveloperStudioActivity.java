@@ -255,45 +255,7 @@ public class DeveloperStudioActivity extends Activity {
         } catch (Exception e) { toast("تعذر فتح requirements.txt"); }
     }
 
-    private void buildCurrentApk() {
-        showOfflineBuildStatus();
-        return;
-        /* Legacy PC Bridge builder retained below for migration reference only. */
-        final String host = Store.get("dev_pc_host", "").trim();
-        final String token = Store.get("dev_pc_token", "").trim();
-        if (host.isEmpty() || token.isEmpty()) { toast("أدخل عنوان PC Bridge والرمز في صفحة Developer Studio أولاً"); return; }
-        final String kind = currentHtml ? "HTML" : "Python";
-        statusUpdate("جارٍ تجهيز مشروع " + kind + " للبناء...");
-        new Thread(() -> {
-            try {
-                File project = currentHtml ? makeHtmlAndroidProject() : makePythonAndroidProject();
-                uploadProject(project, host, token);
-                JSONObject result;
-                if (currentHtml) {
-                    result = postJson(host + "/run", token, new JSONObject().put("command", "gradle --no-daemon :app:assembleDebug"), 950000);
-                } else {
-                    result = postJson(host + "/python-build", token, new JSONObject(), 1850000);
-                }
-                if (!result.optBoolean("ok", false) && result.optInt("exit_code", -1) != 0)
-                    throw new Exception(result.optString("error", result.optString("output", "فشل البناء")));
-                String log = result.optString("output", "اكتمل البناء.");
-                File apk = downloadApk(host, token, currentHtml ? "html-apk" : "python-apk");
-                pendingApk = apk;
-                runOnUiThread(() -> {
-                    statusUpdate("نجح البناء. حجم APK: " + apk.length() + " بايت");
-                    Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT);
-                    save.addCategory(Intent.CATEGORY_OPENABLE);
-                    save.setType("application/vnd.android.package-archive");
-                    save.putExtra(Intent.EXTRA_TITLE, currentProject.getName() + ".apk");
-                    startActivityForResult(save, SAVE_APK);
-                    toast("تم بناء APK. اختر مكان حفظه.");
-                });
-            } catch (Exception e) {
-                String message = "فشل بناء " + kind + ": " + (e.getMessage() == null ? e.toString() : e.getMessage());
-                runOnUiThread(() -> { statusUpdate(message); toast(message); });
-            }
-        }).start();
-    }
+    private void buildCurrentApk() { showOfflineBuildStatus(); }
 
     private void statusUpdate(String s) {
         runOnUiThread(() -> { if (status != null) status.setText(s); });
