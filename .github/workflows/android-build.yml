@@ -33,6 +33,15 @@ jobs:
       - name: Validate PC Bridge Python
         run: python -m py_compile pc-agent/mimax_pc_agent.py && python pc-agent/mimax_pc_agent.py --help
 
+      # Build reusable WebView shells in CI. Actual HTML/Python project APKs are
+      # assembled and signed locally on the Android device by Mi_Max Ai.
+      - name: Build local HTML and Python runner shells
+        run: |
+          gradle --no-daemon -p local-runner :app:assembleHtmlDebug :app:assemblePythonDebug
+          mkdir -p app/src/main/assets
+          cp local-runner/app/build/outputs/apk/html/debug/app-html-debug.apk app/src/main/assets/local_runner_html.apk
+          cp local-runner/app/build/outputs/apk/python/debug/app-python-debug.apk app/src/main/assets/local_runner_python.apk
+
       - name: Build Debug APK
         run: gradle --no-daemon :app:assembleDebug
 
