@@ -3,6 +3,8 @@ set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 NDK="${ANDROID_NDK_HOME:-${ANDROID_NDK_ROOT:-}}"
+if [[ -z "$NDK" && -n "${ANDROID_HOME:-}" ]]; then NDK="$ANDROID_HOME/ndk/27.2.12479018"; fi
+if [[ -z "$NDK" && -n "${ANDROID_SDK_ROOT:-}" ]]; then NDK="$ANDROID_SDK_ROOT/ndk/27.2.12479018"; fi
 if [[ -z "$NDK" ]]; then
   echo "ANDROID_NDK_HOME or ANDROID_NDK_ROOT is required" >&2
   exit 2
