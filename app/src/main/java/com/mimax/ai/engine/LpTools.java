@@ -154,15 +154,16 @@ public final class LpTools {
         List<String> args = new ArrayList<>();
         add(args, "--metadata-size", Long.toString(meta.maxSize));
         add(args, "--metadata-slots", Integer.toString(meta.slotCount));
+        long deviceAlignment = device.alignment > 0 ? device.alignment : (1L << 20);
         add(args, "--device", device.name + ":" + device.size + ":"
-                + Math.max(1, device.alignment) + ":" + device.alignmentOffset);
+                + deviceAlignment + ":" + Math.max(0, device.alignmentOffset));
         add(args, "--super-name", device.name);
         if (suffix) args.add("--auto-slot-suffixing");
         if (meta.virtualAb) args.add("--virtual-ab");
         for (Lp.Group group : meta.groups) {
             add(args, "--group", group.name + ":" + group.maxSize);
         }
-        long alignment = Math.max(1, device.alignment);
+        long alignment = device.alignment > 0 ? device.alignment : (1L << 20);
         for (Lp.Part part : meta.parts) {
             File image = images.get(part.name);
             long required = image.length();
