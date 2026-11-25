@@ -111,7 +111,7 @@ public class DeveloperStudioActivity extends Activity {
         }
         if (found == 0) list.addView(label("لا توجد مشاريع بعد. أنشئ مشروع HTML أو Python.", 13, 0xFF64748B));
         scroll.addView(list); root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-        status = label("المشاريع والمعاينة محلية. محرك بناء APK دون اتصال غير مضمّن بعد؛ لن نعرض بناءً وهمياً.", 12, 0xFF536273);
+        status = label("المشاريع والمعاينة محلية. بناء APK متاح عبر GitHub Actions بعد إدخال رمز وصول للمستودع؛ لا يوجد بناء محلي دون إنترنت.", 12, 0xFF536273);
         root.addView(status);
         root.addView(button("العودة", this::finish));
         setContentView(root);
@@ -216,8 +216,8 @@ public class DeveloperStudioActivity extends Activity {
     }
 
     private void showOfflineBuildStatus() {
-        new AlertDialog.Builder(this).setTitle("بناء APK دون إنترنت")
-            .setMessage("قوالب HTML وPython والمحرر والمعاينة تعمل محلياً. لكن هذا الإصدار لا يحتوي بعد على Android SDK/Build Tools وPython-for-Android مضمّنة. لذلك لن أبدأ بناءً يعتمد على كمبيوتر أو أعرض نجاحاً وهمياً. يلزم دمج محرك بناء محلي متوافق مع معمارية الهاتف واختباره قبل تفعيل الزر.")
+        new AlertDialog.Builder(this).setTitle("حالة محركات البناء")
+            .setMessage("تمت إضافة مسار بناء HTML عبر Android WebView/Gradle، ومسار Python عبر Buildozer وpython-for-Android. إدارة الملفات والمعاينة محليتان، أما تجميع APK فيتم على GitHub Actions بعد رفع المشروع برمز وصول GitHub بصلاحية Contents: Read and write. لا يوجد محرك بناء محلي أو وضع بناء دون إنترنت. تطبيق Python يحتاج واجهة Kivy، وقد تفشل مكتبات native غير المدعومة بوصفات Android.")
             .setPositiveButton("حسناً", null).show();
     }
 
