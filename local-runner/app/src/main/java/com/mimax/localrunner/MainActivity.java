@@ -1,6 +1,12 @@
 package com.mimax.localrunner;
 
-import android.app.Activity;\nimport android.content.Intent;\nimport android.content.pm.ShortcutInfo;\nimport android.content.pm.ShortcutManager;\nimport android.graphics.Bitmap;\nimport android.graphics.BitmapFactory;\nimport android.graphics.drawable.Icon;
+import android.app.Activity;
+import android.content.Intent;
+import android.content.pm.ShortcutInfo;
+import android.content.pm.ShortcutManager;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.Icon;
 import android.os.Bundle;
 import android.webkit.WebChromeClient;
 import android.webkit.WebSettings;
