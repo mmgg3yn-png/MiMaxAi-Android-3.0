@@ -22,6 +22,31 @@ public final class TermuxBridge {
     private static final String TERMUX_BASH = "/data/data/com.termux/files/usr/bin/bash";
     private static final AtomicInteger REQUESTS = new AtomicInteger((int) (System.currentTimeMillis() & 0x3fffffff));
 
+    public static final class Result {
+        public String sessionId;
+        public String output;
+        public int exitCode;
+    }
+
+    public static java.util.List<Result> consumeResults(Context context) {
+        java.util.List<Result> results = new java.util.ArrayList<>();
+        android.content.SharedPreferences prefs = context.getSharedPreferences("mimax_termux_bridge_results", Context.MODE_PRIVATE);
+        try {
+            org.json.JSONArray queue = new org.json.JSONArray(prefs.getString("queue", "[]"));
+            for (int i = 0; i < queue.length(); i++) {
+                org.json.JSONObject item = queue.optJSONObject(i);
+                if (item == null) continue;
+                Result result = new Result();
+                result.sessionId = item.optString("sessionId", "");
+                result.output = item.optString("output", "");
+                result.exitCode = item.optInt("exitCode", -1);
+                results.add(result);
+            }
+        } catch (Exception ignored) { }
+        prefs.edit().remove("queue").commit();
+        return results;
+    }
+
     private TermuxBridge() { }
 
     public static boolean isInstalled(Context context) {
