@@ -119,7 +119,7 @@ jobs:
             $csc = "$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\csc.exe"
           }
           if (-not (Test-Path $csc)) { throw "C# compiler not found: $csc" }
-          & $csc /nologo /target:winexe /platform:$platform /reference:"$env:WINDIR\Microsoft.NET\Framework\v4.0.30319\System.Windows.Forms.dll" /out:"$pkg/MiMaxAi.exe" "desktop/build/Launcher.cs"
+          & $csc /nologo /target:winexe /platform:$platform /reference:"$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\System.Windows.Forms.dll" /out:"$pkg/MiMaxAi.exe" "desktop/build/Launcher.cs"
           if ($LASTEXITCODE -ne 0) { throw "EXE launcher compilation failed" }
           Compress-Archive -Path "$pkg\*" -DestinationPath "desktop/build/${{ matrix.artifact }}.zip" -Force
 
