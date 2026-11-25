@@ -242,6 +242,37 @@ public class TerminalActivity extends Activity {
                 persist();
                 return;
             }
+            if ("history".equals(command)) {
+                StringBuilder historyText = new StringBuilder();
+                for (int i = 0; i < record.history.size(); i++)
+                    historyText.append(i + 1).append("  ").append(record.history.get(i)).append("\n");
+                String value = historyText.toString();
+                record.transcript.add(value);
+                appendLine(value, 0xFFE6EDF3, false);
+                persist();
+                return;
+            }
+            if (command.startsWith("export ")) {
+                String assignment = command.substring(7).trim();
+                int eq = assignment.indexOf('=');
+                if (eq > 0) {
+                    String key = assignment.substring(0, eq).trim();
+                    String value = assignment.substring(eq + 1).trim();
+                    if (value.length() >= 2 && value.startsWith("\"") && value.endsWith("\""))
+                        value = value.substring(1, value.length() - 1);
+                    if (key.matches("[A-Za-z_][A-Za-z0-9_]*")) record.env.put(key, value);
+                } else {
+                    for (Map.Entry<String, String> entry : record.env.entrySet())
+                        appendLine("export " + entry.getKey() + "=" + entry.getValue(), 0xFFE6EDF3, false);
+                }
+                persist();
+                return;
+            }
+            if (command.startsWith("unset ")) {
+                record.env.remove(command.substring(6).trim());
+                persist();
+                return;
+            }
             commandRunning = true;
             persist();
             try {
