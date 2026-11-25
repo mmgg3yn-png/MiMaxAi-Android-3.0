@@ -14,6 +14,8 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.io.FilterOutputStream;
+import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -59,7 +61,8 @@ public final class LocalApkBuilder {
         if (signed.exists()) signed.delete();
 
         try (ZipFile source = new ZipFile(template);
-             ZipOutputStream output = new ZipOutputStream(new FileOutputStream(unsigned))) {
+             CountingOutputStream counted = new CountingOutputStream(new FileOutputStream(unsigned));
+             ZipOutputStream output = new ZipOutputStream(counted)) {
             Enumeration<? extends ZipEntry> entries = source.entries();
             byte[] buffer = new byte[16384];
             while (entries.hasMoreElements()) {
@@ -70,10 +73,24 @@ public final class LocalApkBuilder {
                     continue;
                 }
                 ZipEntry copy = new ZipEntry(name);
-                output.putNextEntry(copy);
-                try (InputStream in = source.getInputStream(entry)) {
-                    int n;
-                    while ((n = in.read(buffer)) != -1) output.write(buffer, 0, n);
+                if ("resources.arsc".equals(name)) {
+                    byte[] raw;
+                    try (InputStream in = source.getInputStream(entry)) { raw = readAll(in); }
+                    java.util.zip.CRC32 crc = new java.util.zip.CRC32();
+                    crc.update(raw);
+                    copy.setMethod(ZipEntry.STORED);
+                    copy.setSize(raw.length);
+                    copy.setCompressedSize(raw.length);
+                    copy.setCrc(crc.getValue());
+                    copy.setExtra(alignmentExtra(counted.getCount(), name));
+                    output.putNextEntry(copy);
+                    output.write(raw);
+                } else {
+                    output.putNextEntry(copy);
+                    try (InputStream in = source.getInputStream(entry)) {
+                        int n;
+                        while ((n = in.read(buffer)) != -1) output.write(buffer, 0, n);
+                    }
                 }
                 output.closeEntry();
             }
@@ -156,6 +173,31 @@ public final class LocalApkBuilder {
                 .build();
         generator.initialize(spec);
         generator.generateKeyPair();
+    }
+
+    private static byte[] readAll(InputStream in) throws Exception {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        copy(in, out);
+        return out.toByteArray();
+    }
+
+    // Android 11+ requires resources.arsc to be uncompressed and 4-byte aligned.
+    private static byte[] alignmentExtra(long offset, String name) throws Exception {
+        int nameLength = name.getBytes("UTF-8").length;
+        int padding = (int) ((4 - ((offset + 30 + nameLength + 4) & 3)) & 3);
+        if (padding == 0) return null;
+        return new byte[] { 0x35, (byte) 0xD9, (byte) padding, 0x00,
+                (byte) 0x00, (byte) 0x00, (byte) 0x00 };
+    }
+
+    private static final class CountingOutputStream extends FilterOutputStream {
+        private long count;
+        CountingOutputStream(java.io.OutputStream out) { super(out); }
+        long getCount() { return count; }
+        @Override public void write(int b) throws IOException { out.write(b); count++; }
+        @Override public void write(byte[] b, int off, int len) throws IOException {
+            out.write(b, off, len); count += len;
+        }
     }
 
     private static void addFile(ZipOutputStream zip, String name, File file) throws Exception {
