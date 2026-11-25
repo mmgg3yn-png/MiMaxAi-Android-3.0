@@ -95,7 +95,9 @@ public final class FastDownloadTask {
                 try{
                     c=connect(start,end,true);
                     int code=c.getResponseCode();
-                    if(code!=206)throw new Exception("الخادم لا يدعم التنزيل المجزأ لهذه الوصلة");
+                    String rangeHeader=c.getHeaderField("Content-Range");
+                    if(code!=206 || rangeHeader==null || !rangeHeader.startsWith("bytes "+start+"-"+end+"/"))
+                        throw new Exception("الخادم لم يؤكد نطاق الجزء المطلوب");
                     try(InputStream in=c.getInputStream()){
                         byte[] b=new byte[64*1024];long pos=start;int n;
                         while(!cancelled.get()&&(n=in.read(b))!=-1){
@@ -105,7 +107,12 @@ public final class FastDownloadTask {
                         }
                         if(pos!=end+1)throw new Exception("استجابة غير مكتملة من الخادم");
                     }
-                }catch(Exception e){failed=true;cancelled.set(true);listener.onError(e.getMessage()==null?"فشل جزء من التنزيل":e.getMessage());}
+                }catch(Exception e){
+                    if(!cancelled.get()){
+                        failed=true;cancelled.set(true);
+                        listener.onError(e.getMessage()==null?"فشل جزء من التنزيل":e.getMessage());
+                    }
+                }
                 finally{if(c!=null)c.disconnect();active.decrementAndGet();}
             });
         }
