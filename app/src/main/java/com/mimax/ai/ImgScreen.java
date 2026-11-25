@@ -216,7 +216,7 @@ class ImgScreen {
                 }
                 if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الأقسام: " + dir);
                 for (Lp.Part part : meta.parts) {
-                    if (part.size > 0) moveFile(new File(stage, part.name + ".img"),
+                    if (part.size > 0) moveFile(new File(stage, Lp.unpackFileName(part, 0)),
                             new File(dir, part.name + ".img"));
                 }
                 deleteTree(stage);
@@ -310,7 +310,7 @@ class ImgScreen {
                     }
                 }
                 if (!dir.exists() && !dir.mkdirs()) throw new java.io.IOException("تعذر إنشاء مجلد الأقسام");
-                for (Lp.Part pt : todo) moveFile(new File(stage, pt.name + ".img"),
+                for (Lp.Part pt : todo) moveFile(new File(stage, Lp.unpackFileName(pt, 0)),
                         new File(dir, pt.name + ".img"));
                 deleteTree(stage);
                 progress.on(1, 1);
