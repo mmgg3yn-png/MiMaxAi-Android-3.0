@@ -24,6 +24,7 @@ import android.widget.ListView;
 import android.widget.TextView;
 
 import com.mimax.ai.engine.Archives;
+import com.mimax.ai.engine.ArchivePack;
 import com.mimax.ai.engine.BootImg;
 import com.mimax.ai.engine.Io;
 import com.mimax.ai.engine.LogoBin;
@@ -276,6 +277,16 @@ class FileScreen {
         List<String> L = new ArrayList<>();
         final List<ZipScreen.Act> A = new ArrayList<>();
         L.add("فتح"); A.add(() -> open(f));
+        L.add("ضغط إلى ZIP");
+        A.add(() -> createArchive(f, ".zip", null, null));
+        if (f.isDirectory()) {
+            L.add("إنشاء حزمة إضافة .mt1");
+            A.add(() -> createArchive(f, ".mt1", "META-INF/mimax/addon.json",
+                    "{\n  \"format\": \"MiMaxAddon\",\n  \"formatVersion\": 1\n}\n"));
+            L.add("إنشاء حزمة ثيم .mt_1");
+            A.add(() -> createArchive(f, ".mt_1", "META-INF/mimax/theme.json",
+                    "{\n  \"format\": \"MiMaxTheme\",\n  \"formatVersion\": 1\n}\n"));
+        }
         if (LogoBin.isProject(f)) {
             L.add("إعادة تجميع مشروع logo.bin");
             A.add(() -> {
@@ -303,6 +314,17 @@ class FileScreen {
         L.add("خصائص"); A.add(() -> props(f));
         final String[] labels = L.toArray(new String[0]);
         a.gb().setTitle(f.getName()).setItems(labels, (d, w) -> A.get(w).go()).show();
+    }
+
+    void createArchive(final File source, final String extension, final String metadataEntry, final String metadataJson) {
+        final File out = unique(new File(source.getParentFile(), source.getName() + extension));
+        a.confirm("إنشاء أرشيف جديد دون تعديل المصدر؟\n\nالمصدر: " + source.getPath()
+                + "\nالناتج: " + out.getPath(), () -> {
+            final Io.Cancel cancel = new Io.Cancel();
+            a.runBgP("ضغط الملفات…", cancel,
+                    progress -> ArchivePack.create(source, out, metadataEntry, metadataJson, progress, cancel),
+                    () -> a.showError("تم إنشاء الأرشيف:\n" + out.getPath() + "\nالحجم: " + Io.human(out.length())));
+        });
     }
 
     void props(final File f) {
