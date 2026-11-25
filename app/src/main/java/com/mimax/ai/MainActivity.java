@@ -1582,6 +1582,7 @@ public class MainActivity extends Activity {
         p.addView(row("TERM", "Terminal محلي", "أوامر Android داخل مساحة عمل آمنة", v -> startActivity(new Intent(MainActivity.this, TerminalActivity.class))));
         p.addView(row("AGENT", "AI Agent", "تحليل ملفات مساحة العمل وإنشاء تعديلات بموافقتك", v -> startActivity(new Intent(MainActivity.this, AgentActivity.class))));
         p.addView(row("MT1", "الإضافات وAI Extension Creator", "تثبيت حزم .mt1 وإنشاء إضافات بالذكاء الاصطناعي", v -> startActivity(new Intent(MainActivity.this, ExtensionActivity.class))));
+        p.addView(row("IDE", "Developer Studio", "محررات HTML وPython وتحويل المشاريع إلى APK", v -> startActivity(new Intent(MainActivity.this, DeveloperStudioActivity.class))));
         p.addView(row("PC", "اتصال الكمبيوتر", "ADB وFastboot عبر الكمبيوتر على نفس الشبكة", v -> startActivity(new Intent(MainActivity.this, RemotePcActivity.class))));
         p.addView(row("BACKUP", "النسخ الاحتياطي", "تصدير واستعادة المحادثات والذاكرة والإعدادات", v -> startActivity(new Intent(MainActivity.this, BackupActivity.class))));
         p.addView(row("UI", "المظهر", (style == 1 ? "زجاج سائل" : style == 2 ? "Material 3" : "عادي") + " — " + th.nameAr, v -> openSub("look")));
