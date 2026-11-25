@@ -3,7 +3,7 @@ name: Mi_Max Ai 3.0 Android Build
 
 on:
   push:
-    branches: [ main, development, 'feature/local-html-python-apk' ]
+    branches: [ main, development, 'feature/local-html-python-apk', 'feature/mimaxai-embedded-tool-suite' ]
   workflow_dispatch:
 
 permissions:
@@ -42,6 +42,17 @@ jobs:
           mkdir -p app/src/main/assets
           cp local-runner/app/build/outputs/apk/html/debug/app-html-debug.apk app/src/main/assets/local_runner_html.apk
           cp local-runner/app/build/outputs/apk/python/debug/app-python-debug.apk app/src/main/assets/local_runner_python.apk
+
+      - name: Test embedded MTK logo.bin engine
+        run: |
+          ANDROID_JAR="$(find "$ANDROID_HOME/platforms" -name android.jar | sort -V | tail -n 1)"
+          test -n "$ANDROID_JAR"
+          mkdir -p build/logo-bin-tests
+          javac -encoding UTF-8 -cp "$ANDROID_JAR" -d build/logo-bin-tests \
+            app/src/main/java/com/mimax/ai/engine/Io.java \
+            app/src/main/java/com/mimax/ai/engine/LogoBin.java \
+            engine-tests/LogoBinTest.java
+          java -cp "build/logo-bin-tests:$ANDROID_JAR" LogoBinTest build/logo-bin-tests/work
 
       - name: Build Debug APK
         run: gradle --no-daemon :app:assembleDebug
