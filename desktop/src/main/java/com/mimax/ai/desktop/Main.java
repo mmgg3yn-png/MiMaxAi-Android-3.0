@@ -15,7 +15,10 @@ import java.util.Collections;
 
 /** Mi_Max Ai Desktop - Windows x86/x64. Shared Java ROM engines, independent of Android. */
 public final class Main extends JFrame {
-    private static final Color BG = new Color(17, 20, 29), PANEL = new Color(27, 32, 44), ACCENT = new Color(94, 145, 255), FG = new Color(235, 239, 248), MUTED = new Color(153, 164, 185);
+    private Color BG = new Color(21,23,26), PANEL = new Color(31,34,38), PANEL2 = new Color(42,46,52), ACCENT = new Color(255,106,0), FG = new Color(236,239,243), MUTED = new Color(152,161,173), LINE = new Color(51,56,63);
+    private final java.util.prefs.Preferences prefs = java.util.prefs.Preferences.userNodeForPackage(Main.class);
+    private String themeId = "basic", designStyle = "normal";
+    private boolean motion = true;
     private final JTextArea log = new JTextArea();
     private File selected;
     private JLabel selectedLabel;
@@ -25,6 +28,7 @@ public final class Main extends JFrame {
     private Main() {
         super("Mi_Max Ai Desktop  •  3.0");
         setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+        loadAppearance();
         setMinimumSize(new Dimension(900, 620));
         setSize(1080, 720);
         setLocationRelativeTo(null);
@@ -50,8 +54,10 @@ public final class Main extends JFrame {
         tabs.addTab("الأرشيف", archives());
         tabs.addTab("logo.bin", logo());
         tabs.addTab("السجل", logPanel());
+        tabs.addTab("المظهر", appearancePanel());
         tabs.setComponentOrientation(ComponentOrientation.RIGHT_TO_LEFT);
         style(tabs);
+        applyAppearance(getContentPane());
         add(tabs, BorderLayout.CENTER);
         selectedLabel = new JLabel("لم يتم اختيار ملف بعد");
         selectedLabel.setForeground(MUTED);
@@ -208,10 +214,51 @@ public final class Main extends JFrame {
     private void note(String s) { log.append("• " + s + "\n"); }
     private void warn(String s) { JOptionPane.showMessageDialog(this,s,"تنبيه",JOptionPane.WARNING_MESSAGE); }
     private void error(Throwable e) { note("خطأ: " + e); JOptionPane.showMessageDialog(this,e.getMessage(),"تعذر إكمال العملية",JOptionPane.ERROR_MESSAGE); }
-    private JButton button(String s) { JButton b = new JButton(s); b.setFocusPainted(false); b.setBackground(ACCENT); b.setForeground(Color.WHITE); b.setFont(new Font("Segoe UI",Font.BOLD,13)); return b; }
+    private JButton button(String s) { JButton b = new JButton(s); b.setFocusPainted(false); b.setBackground(ACCENT); b.setForeground(contrast(ACCENT)); b.setFont(new Font("Segoe UI",Font.BOLD,13)); return b; }
     private JPanel action(String s, Runnable r) { JPanel p = new JPanel(new FlowLayout(FlowLayout.RIGHT)); p.setOpaque(false); JButton b=button(s); b.addActionListener(e -> r.run()); p.add(b); return p; }
     private JPanel panel() { JPanel p=new JPanel(); p.setLayout(new BoxLayout(p,BoxLayout.Y_AXIS)); p.setBackground(BG); p.setBorder(new EmptyBorder(18,18,18,18)); return p; }
     private JLabel label(String s) { JLabel l=new JLabel(s); l.setForeground(FG); l.setFont(new Font("Segoe UI",Font.PLAIN,14)); l.setAlignmentX(Component.RIGHT_ALIGNMENT); return l; }
     private JPanel card(String title,String desc) { JPanel p=new JPanel(new BorderLayout(6,8)); p.setBackground(PANEL); p.setBorder(new EmptyBorder(18,18,18,18)); JLabel h=new JLabel(title); h.setForeground(ACCENT); h.setFont(new Font("Segoe UI",Font.BOLD,17)); JLabel d=new JLabel("<html><div style='width:280px;color:#d5dced'>"+desc+"</div></html>"); p.add(h,BorderLayout.NORTH); p.add(d,BorderLayout.CENTER); return p; }
+
+    // Appearance values are ported from app/src/main/java/com/mimax/ai/Theme.java.
+    private static final class Palette {
+        final String id,name,desc; final boolean dark; final Color base,surface,surface2,line,text,muted,accent,error;
+        Palette(String i,String n,String d,boolean k,int... c){id=i;name=n;desc=d;dark=k;base=new Color(c[0],true);surface=new Color(c[1],true);surface2=new Color(c[2],true);line=new Color(c[3],true);text=new Color(c[4],true);muted=new Color(c[5],true);accent=new Color(c[6],true);error=new Color(c[7],true);}
+    }
+    private static final Palette[] THEMES = {
+        new Palette("basic","الأساسي","رمادي داكن مع برتقالي — مثل النسخة الأولى",true,0xFF15171A,0xFF1F2226,0xFF2A2E34,0xFF33383F,0xFFECEFF3,0xFF98A1AD,0xFFFF6A00,0xFFFF6B6B),
+        new Palette("amoled","أسود نقي","AMOLED: خلفية سوداء كاملة",true,0xFF000000,0xFF0D0D10,0xFF18181C,0xFF26262B,0xFFEDEDF0,0xFF8E8E98,0xFF8AB4F8,0xFFF28B82),
+        new Palette("slate","الضباب","رمادي مزرق هادئ",true,0xFF11161C,0xFF1A2129,0xFF232C36,0xFF2F3A46,0xFFE6EBF1,0xFF8F9DAD,0xFF7FA6C9,0xFFE57373),
+        new Palette("forest","الغابة","أخضر مريمي ناعم",true,0xFF0F1512,0xFF18211C,0xFF212C26,0xFF2E3B34,0xFFE4EEE8,0xFF92A89B,0xFF7FB69A,0xFFE57373),
+        new Palette("dusk","الغسق","بنفسجي رمادي دافئ",true,0xFF15121A,0xFF1F1B27,0xFF292433,0xFF372F44,0xFFEAE6F0,0xFFA39BB3,0xFFB39DDB,0xFFE57373),
+        new Palette("sand","الرمل","فاتح دافئ هادئ",false,0xFFF3EFE8,0xFFFFFFFF,0xFFEAE4DA,0xFFD9D1C4,0xFF2A2620,0xFF7A7064,0xFFB5651D,0xFFC0392B)
+    };
+    private void loadAppearance(){themeId=prefs.get("theme","basic");designStyle=prefs.get("style","normal");motion=prefs.getBoolean("motion",true);setPalette();}
+    private Palette selectedPalette(){for(Palette p:THEMES)if(p.id.equals(themeId))return p;return THEMES[0];}
+    private void setPalette(){Palette p=selectedPalette();BG=p.base;PANEL=p.surface;PANEL2=p.surface2;LINE=p.line;FG=p.text;MUTED=p.muted;ACCENT=p.accent;}
+    private Color contrast(Color c){double l=(.299*c.getRed()+.587*c.getGreen()+.114*c.getBlue())/255;return l>.58?new Color(16,19,26):Color.WHITE;}
+    private JPanel appearancePanel(){
+        JPanel root=panel();root.add(label("المظهر — نفس ثيمات Mi_Max Ai على Android"));root.add(label("تغيير الثيم أو نمط التصميم يُحفظ محلياً ويُطبّق على الواجهة."));
+        JComboBox<String> styleBox=new JComboBox<>(new String[]{"عادي","زجاج سائل","Material 3"});
+        styleBox.setSelectedIndex(designStyle.equals("glass")?1:designStyle.equals("material")?2:0);
+        styleBox.addActionListener(e->{designStyle=styleBox.getSelectedIndex()==1?"glass":styleBox.getSelectedIndex()==2?"material":"normal";prefs.put("style",designStyle);refreshAppearance();});
+        root.add(label("نمط التصميم"));root.add(styleBox);
+        root.add(label("الثيمات الأصلية"));
+        for(Palette p:THEMES){JButton b=new JButton((p.id.equals(themeId)?"✓  ":"")+p.name+" — "+p.desc);b.setHorizontalAlignment(SwingConstants.RIGHT);b.setBackground(p.surface2);b.setForeground(p.text);b.setBorder(BorderFactory.createCompoundBorder(BorderFactory.createLineBorder(p.accent,2),new EmptyBorder(12,14,12,14)));b.setFocusPainted(false);b.addActionListener(e->{themeId=p.id;prefs.put("theme",themeId);refreshAppearance();});root.add(b);}
+        JCheckBox animate=new JCheckBox("حركة الخلفية السائلة",motion);animate.setOpaque(false);animate.setForeground(FG);animate.addActionListener(e->{motion=animate.isSelected();prefs.putBoolean("motion",motion);});root.add(animate);
+        root.add(label("الثيم الحالي: "+selectedPalette().name+" • النمط: "+(designStyle.equals("glass")?"زجاج سائل":designStyle.equals("material")?"Material 3":"عادي")));
+        return root;
+    }
+    private void refreshAppearance(){setPalette();SwingUtilities.invokeLater(()->{getContentPane().setBackground(BG);repaint();dispose();new Main().setVisible(true);});}
+    private void applyAppearance(Component c){
+        if(c instanceof JTabbedPane){c.setBackground(PANEL);c.setForeground(FG);}
+        else if(c instanceof JTextArea){c.setBackground(PANEL2);c.setForeground(FG);((JTextArea)c).setCaretColor(ACCENT);}
+        else if(c instanceof JTextField){c.setBackground(PANEL2);c.setForeground(FG);((JTextField)c).setCaretColor(ACCENT);}
+        else if(c instanceof JButton){c.setBackground(PANEL2);c.setForeground(FG);}
+        else if(c instanceof JLabel){c.setForeground(FG);}
+        else if(c instanceof JPanel){c.setBackground(BG);}
+        if(c instanceof Container)for(Component child:((Container)c).getComponents())applyAppearance(child);
+    }
+
     private void style(JTabbedPane t) { t.setBackground(PANEL); t.setForeground(FG); t.setFont(new Font("Segoe UI",Font.BOLD,13)); }
 }
