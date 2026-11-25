@@ -59,10 +59,10 @@ public final class ExtensionScriptRuntime {
                 }
             }
         };
+        PluginApi pluginApi = new PluginApi(activity, extensionId, selectedFile);
         factory.call(context -> {
             Scriptable scope = context.initSafeStandardObjects();
-            ScriptableObject.putProperty(scope, "api",
-                    Context.javaToJS(new PluginApi(activity, extensionId, selectedFile), scope));
+            ScriptableObject.putProperty(scope, "api", Context.javaToJS(pluginApi, scope));
             context.evaluateString(scope, source, extensionId + "/main.js", 1, null);
             return null;
         });
