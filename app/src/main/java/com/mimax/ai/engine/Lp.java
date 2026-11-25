@@ -170,6 +170,17 @@ public final class Lp {
     }
 
     /** True only when two slots describe identical extents and metadata layout. */
+    /** AOSP ReadMetadata applies slot suffixes before lpunpack names output files. */
+    public static String unpackPartitionName(Part part, int slot) {
+        if ((part.attrs & 2) == 0) return part.name;
+        if (slot < 0 || slot > 25) throw new IllegalArgumentException("Unsupported LP slot " + slot);
+        return part.name + "_" + (char) ('a' + slot);
+    }
+
+    public static String unpackFileName(Part part, int slot) {
+        return unpackPartitionName(part, slot) + ".img";
+    }
+
     public static boolean sameLayout(Meta a, Meta b) {
         if (a == null || b == null || a.major != b.major || a.minor != b.minor
                 || a.slotCount != b.slotCount || a.maxSize != b.maxSize
