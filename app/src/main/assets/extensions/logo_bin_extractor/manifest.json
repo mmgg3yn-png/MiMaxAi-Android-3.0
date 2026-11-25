@@ -1,0 +1,19 @@
+{
+  "id": "mimax.logo.bin.extractor",
+  "name": "Logo.bin Extractor",
+  "version": "1.1.0",
+  "description": "استخراج صور MediaTek logo.bin من مدير الملفات إلى PNG أو RGBA.",
+  "runtime": "declarative",
+  "action": {
+    "label": "تشغيل أداة فك logo.bin",
+    "handler": "logo_bin_extractor"
+  },
+  "file_action": {
+    "label": "فك logo.bin واستخراج الصور",
+    "filename": "logo.bin",
+    "extensions": [".bin"],
+    "handler": "logo_bin_extractor"
+  },
+  "permissions": ["read_selected_file", "create_document"],
+  "safety": "read-only"
+}
