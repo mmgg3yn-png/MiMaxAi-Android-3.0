@@ -261,6 +261,7 @@ public class BrowserActivity extends Activity {
         final DownloadManager dm=(DownloadManager)getSystemService(DOWNLOAD_SERVICE);
         LinearLayout panel=new LinearLayout(this);panel.setOrientation(LinearLayout.VERTICAL);panel.setPadding(dp(10),dp(8),dp(10),dp(8));panel.setBackgroundColor(surfaceColor);
         TextView heading=new TextView(this);heading.setText("مدير التنزيلات");heading.setTextSize(18);heading.setTextColor(textColor);heading.setPadding(0,0,0,dp(6));panel.addView(heading);
+        TextView note=new TextView(this);note.setText("يعرض التقدم والحجم والحالة. سرعة التنزيل الحالية تعتمد على خادم الموقع ومحرك Android؛ التنزيل المجزأ متعدد الاتصالات غير مفعّل بعد.");note.setTextSize(10);note.setTextColor(mutedColor);panel.addView(note);
         ScrollView scroll=new ScrollView(this);downloadRows=new LinearLayout(this);downloadRows.setOrientation(LinearLayout.VERTICAL);scroll.addView(downloadRows);
         panel.addView(scroll,new LinearLayout.LayoutParams(-1,dp(420)));
         AlertDialog dialog=new AlertDialog.Builder(this).setView(panel).setPositiveButton("إغلاق",null).create();
@@ -275,6 +276,7 @@ public class BrowserActivity extends Activity {
                     long id=cur.getLong(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_ID));
                     String name=cur.getString(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE));
                     int st=cur.getInt(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS));
+                    String sourceUrl=cur.getString(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_URI));
                     long got=cur.getLong(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR));
                     long total=cur.getLong(cur.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES));
                     int pct=total>0?(int)Math.min(100,(got*100L)/total):0;
@@ -287,6 +289,7 @@ public class BrowserActivity extends Activity {
                     LinearLayout actions=new LinearLayout(this);actions.setGravity(Gravity.RIGHT);
                     Button open=new Button(this);open.setText("فتح");open.setTextSize(10);open.setMinHeight(dp(32));open.setOnClickListener(v->openDownload(dm,id));
                     open.setEnabled(st==DownloadManager.STATUS_SUCCESSFUL);actions.addView(open);
+                    if(st==DownloadManager.STATUS_FAILED && sourceUrl!=null){ Button retry=new Button(this);retry.setText("إعادة المحاولة");retry.setTextSize(10);retry.setMinHeight(dp(32));retry.setOnClickListener(v->retryDownload(sourceUrl));actions.addView(retry); }
                     Button cancel=new Button(this);cancel.setText("إلغاء / حذف");cancel.setTextSize(10);cancel.setMinHeight(dp(32));cancel.setOnClickListener(v->{dm.remove(id);toast("تم إلغاء التنزيل وحذفه");});actions.addView(cancel);
                     card.addView(actions);LinearLayout.LayoutParams cp=new LinearLayout.LayoutParams(-1,-2);cp.bottomMargin=dp(7);downloadRows.addView(card,cp);
                 }
@@ -334,6 +337,18 @@ public class BrowserActivity extends Activity {
             getSharedPreferences(PREF,0).edit().remove("history").apply();toast("تم مسح بيانات التصفح");
         }).setNegativeButton("إلغاء",null).show();
     }
+    private void retryDownload(String url){
+        try{
+            DownloadManager.Request r=new DownloadManager.Request(Uri.parse(url));
+            String name=android.webkit.URLUtil.guessFileName(url,null,null);
+            r.setTitle(name);r.setDescription("Mi_Max Ai Browser • إعادة المحاولة");
+            r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,"MiMaxAi/"+name);
+            r.setAllowedOverMetered(true);r.setAllowedOverRoaming(false);
+            ((DownloadManager)getSystemService(DOWNLOAD_SERVICE)).enqueue(r);
+            toast("بدأت إعادة التنزيل");
+        }catch(Exception e){toast("تعذرت إعادة المحاولة");}
+    }
     private void download(String url,String ua,String disposition,String mime){
         try{
             DownloadManager.Request r=new DownloadManager.Request(Uri.parse(url));
@@ -341,6 +356,7 @@ public class BrowserActivity extends Activity {
             r.setTitle(name);r.setDescription("Mi_Max Ai Browser");if(mime!=null)r.setMimeType(mime);
             if(ua!=null)r.addRequestHeader("User-Agent",ua);
             r.setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED);
+            r.setAllowedOverMetered(true);r.setAllowedOverRoaming(false);
             r.setDestinationInExternalPublicDir(Environment.DIRECTORY_DOWNLOADS,"MiMaxAi/"+name);
             ((DownloadManager)getSystemService(DOWNLOAD_SERVICE)).enqueue(r);toast("بدأ التنزيل");
         }catch(Exception e){toast("تعذر بدء التنزيل");}
