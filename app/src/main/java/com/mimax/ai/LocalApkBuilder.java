@@ -90,7 +90,7 @@ public final class LocalApkBuilder {
                     copy.setSize(raw.length);
                     copy.setCompressedSize(raw.length);
                     copy.setCrc(crc.getValue());
-                    // apksig performs standards-compliant 4-byte alignment before signing.
+                    copy.setExtra(alignmentExtra(counted.getCount(), name));
                     output.putNextEntry(copy);
                     output.write(raw);
                 } else {
@@ -162,7 +162,6 @@ public final class LocalApkBuilder {
                 .setV1SigningEnabled(true)
                 .setV2SigningEnabled(true)
                 .setV3SigningEnabled(true)
-                .setAlignmentPreserved(false)
                 .build()
                 .sign();
     }
@@ -191,6 +190,21 @@ public final class LocalApkBuilder {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         copy(in, out);
         return out.toByteArray();
+    }
+
+    /**
+     * Adds the Android ZIP alignment extra field (0xD935) so the uncompressed
+     * resources.arsc payload starts at a 4-byte boundary.
+     */
+    private static byte[] alignmentExtra(long localHeaderOffset, String entryName) {
+        int nameLength = entryName.getBytes(StandardCharsets.UTF_8).length;
+        long dataStartWithoutExtra = localHeaderOffset + 30L + nameLength;
+        int padding = (int)((4L - (dataStartWithoutExtra & 3L)) & 3L);
+        if (padding == 0) return null;
+        byte[] extra = new byte[4 + padding];
+        extra[0] = 0x35; extra[1] = (byte) 0xD9; // 0xD935
+        extra[2] = (byte) padding; extra[3] = 0;
+        return extra;
     }
 
     private static final class CountingOutputStream extends FilterOutputStream {
