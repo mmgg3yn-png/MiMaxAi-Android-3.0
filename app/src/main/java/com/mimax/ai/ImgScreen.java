@@ -339,6 +339,18 @@ class ImgScreen {
                 Io.checkSpace(work, workNeeded);
                 Io.checkSpace(output.getAbsoluteFile().getParentFile(),
                         alsoSparse ? meta.totalSize() : meta.deviceSize);
+                if (meta.devices.size() != 1) {
+                    throw new com.mimax.ai.engine.Io.Unsupported("إعادة التجميع الحالية تتطلب super بجهاز كتل واحد؛ لم يتم تغيير الصورة.");
+                }
+                for (int slot = 1; slot < meta.slotCount; slot++) {
+                    final int slotNumber = slot;
+                    final Lp.Meta[] otherSlot = new Lp.Meta[1];
+                    withSrc(img, info.sparse, source -> otherSlot[0] = Lp.read(source, slotNumber));
+                    if (!Lp.sameLayout(meta, otherSlot[0])) {
+                        throw new com.mimax.ai.engine.Io.Unsupported("Metadata slot " + slot
+                                + " يختلف عن slot 0. أُوقف lpmake حتى لا يستبدل بيانات A/B ببيانات نسخة واحدة.");
+                    }
+                }
                 if (info.sparse) Sparse.toRaw(img, sourceRaw, progress, cancel);
 
                 File extractedDir = new File(work, "original_parts");
