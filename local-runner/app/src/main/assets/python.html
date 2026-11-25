@@ -18,6 +18,7 @@ pre{white-space:pre-wrap;overflow-wrap:anywhere;background:#080e18;border:1px so
 <p>يعمل كود Python محلياً داخل التطبيق باستخدام Pyodide. تنزيل بيئة التشغيل والمكتبات يحتاج اتصالاً بالإنترنت أول مرة. المكتبات ذات الامتدادات الأصلية الخاصة بأندرويد أو Kivy غير مدعومة هنا.</p>
 <p id="state">جاري تحميل بيئة Python...</p>
 <button id="run" disabled>تشغيل المشروع</button>
+<canvas id="python-canvas" width="320" height="180" style="display:block;max-width:100%;background:#fff;border-radius:10px;margin-top:12px"></canvas>
 <pre id="output"></pre>
 <script>
 const state=document.getElementById('state'), output=document.getElementById('output'), run=document.getElementById('run');
