@@ -80,7 +80,7 @@ public final class ErofsEngine {
                     exe.getAbsolutePath(),
                     "-i", raw.getAbsolutePath(),
                     "-x", "-f", "-s", "-T2",
-                    "-o", output.getAbsolutePath());
+                    "-o=" + output.getAbsolutePath());
             builder.redirectErrorStream(true).redirectOutput(log);
             String previousLibPath = builder.environment().get("LD_LIBRARY_PATH");
             builder.environment().put("LD_LIBRARY_PATH", dirOf(exe)
