@@ -1,9 +1,9 @@
-name: Mi_Max Ai 3.0 Android Build
+name: Mi_Max Ai 3.2 Android Build
 # Rebuild local HTML/Python APK templates after package and alignment fixes
 
 on:
   push:
-    branches: [ main, development, 'feature/local-html-python-apk', 'feature/mimaxai-3.1-complete-upgrade' ]
+    branches: [ main, development, 'feature/local-html-python-apk', 'feature/mimaxai-3.1-complete-upgrade', 'feature/mimaxai-3.2-full-upgrade' ]
   workflow_dispatch:
 
 permissions:
