@@ -79,8 +79,8 @@ This file is the persistent scope register for the 3.2 upgrade. A feature is **n
 - [ ] External launcher icon aliases where Android launchers support them.
 - [ ] Changes are opt-in and reversible.
 
-### L. Full backup and restore — INCOMPLETE, HIGH PRIORITY
-- [ ] Password-encrypted full archive of app-owned persistent files, databases, SharedPreferences, chats, memory, prompts, models, credentials, projects, extensions, installed app-managed engines, themes, browser state and settings.
+### L. Full backup and restore — FIRST IMPLEMENTATION ADDED; TESTS PENDING
+- [x] First implementation: password-encrypted archive of app-private files, databases, SharedPreferences, app-specific external files/cache, no-backup files and code cache. Credentials are included only inside the encrypted archive.\n- [ ] Validate backup/restore on device, large archives, incorrect passwords, interrupted I/O and rollback behavior.
 - [ ] Include app-specific external files and removable-storage content only when the user explicitly selects/grants access.
 - [ ] Full and selective backup/restore; automatic scheduled/pre-update backup where Android permits.
 - [ ] Stage and validate restore before replacing live data; keep a rollback copy; verify SHA-256 and report skipped/inaccessible items.
@@ -93,7 +93,7 @@ This file is the persistent scope register for the 3.2 upgrade. A feature is **n
 - [ ] Central update center for app, engines, extensions, language packs and themes.
 - [ ] Compatibility checks and actionable diagnostics.
 
-### N. App controls — NOT STARTED
+### N. App controls — FIRST IMPLEMENTATION ADDED; TESTS PENDING
 - [ ] Explicit developer-options on/off control.
 - [ ] Real application restart action that relaunches the launcher activity; preserve pending work and stored data.
 - [ ] Restart into maintenance/recovery mode where implemented.
@@ -103,4 +103,4 @@ This file is the persistent scope register for the 3.2 upgrade. A feature is **n
 - Baseline: branch `feature/mimaxai-3.1-complete-upgrade`, commit `5d6a4f43fb3268fa8a28855296fad24688f5a722`.
 - Baseline GitHub Actions run `45782018386`: success; artifact `MiMaxAi-3.0-Debug-APK`.
 - New work branch: `feature/mimaxai-3.2-full-upgrade`.
-- [ ] 3.2.0 implementation work not yet validated.
+- [x] Added persistent roadmap and isolated 3.2 branch.\n- [x] Added encrypted full app-data backup engine and restore staging/checksum validation.\n- [x] Added settings entry for application restart.\n- [x] Added developer-options disable button without deleting saved customization.\n- [ ] First GitHub Actions build and runtime validation pending.
