@@ -425,3 +425,4 @@ public class TerminalActivity extends Activity {
         persist();
         super.onDestroy();
     }
+}
