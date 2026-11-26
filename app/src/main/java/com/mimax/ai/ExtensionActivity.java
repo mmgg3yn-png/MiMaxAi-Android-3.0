@@ -211,7 +211,7 @@ public class ExtensionActivity extends Activity {
             try{
                 JSONArray msgs=new JSONArray();
                 JSONObject sys=new JSONObject();sys.put("role","system");
-                sys.put("content","أنت منشئ إضافات أدوات Mi_Max Ai بصيغة .mt1 API v1. لا تكتب أوامر shell أو Java أو Python أو JavaScript ولا تنشئ كوداً قابلاً للتنفيذ. أعد JSON فقط بالشكل {\\"id\\":\\"file_tool_01\\",\\"name\\":\\"اسم الأداة\\",\\"description\\":\\"وصف\\",\\"title\\":\\"عنوان الشاشة\\",\\"actions\\":[{\\"id\\":\\"inspect\\",\\"title\\":\\"فحص الملف\\",\\"kind\\":\\"file_info\\"}]}. الأنواع الوحيدة المسموحة: file_info, sha256, hex_preview, text_preview, detect_image. اختر العمليات التي تلائم طلب المستخدم فقط، بحد أقصى 10. لا Markdown.");
+                sys.put("content","أنت منشئ إضافات أدوات Mi_Max Ai بصيغة .mt1 API v1. لا تكتب أي كود قابل للتنفيذ. أعد JSON فقط بمفاتيح id وname وdescription وtitle وactions. كل عنصر في actions يحتوي id وtitle وkind. الأنواع الوحيدة: file_info وsha256 وhex_preview وtext_preview وdetect_image. اختر ما يناسب طلب المستخدم، بحد أقصى 10 عمليات. لا Markdown.");
                 msgs.put(sys);JSONObject user=new JSONObject();user.put("role","user");user.put("content",task);msgs.put(user);
                 String answer=Api.chat(Store.key(),Models.resolve(Store.model()),msgs,0.2,false,null,null);
                 JSONObject spec=parseToolJson(answer);
