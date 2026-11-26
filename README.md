@@ -65,3 +65,4 @@
 - Terminal المحلي معزول داخل مجلد التطبيق ولا يملك صلاحيات root.
 - AI Agent يكتب في مساحة العمل الخاصة بالتطبيق فقط؛ لا يستطيع تعديل ملفات التطبيقات الأخرى أو تشغيل Gradle على الهاتف.
 - المتصفح يعتمد على Android System WebView المثبت في الجهاز.
+\n\n## Mi_Max Ai 3.2 development\n\nActive work is tracked in `MI_MAX_AI_3_2_ROADMAP.md`. The default appearance and existing navigation are protected requirements. The 3.2 branch adds a password-encrypted full backup engine and app restart/developer-options controls first; remaining checklist items are not considered complete until implemented and tested. Android sandbox restrictions still apply to data outside this application's accessible storage.\n
