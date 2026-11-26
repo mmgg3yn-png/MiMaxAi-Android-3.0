@@ -59,6 +59,7 @@ public class ExtensionActivity extends Activity {
         root.addView(button("تثبيت إضافة .mt1",this::pickPackage));
         root.addView(button("إنشاء إضافة بالذكاء الاصطناعي",this::createWithAi));
         root.addView(button("إنشاء شاشة أو أداة بالذكاء الاصطناعي",this::createUiWithAi));
+        root.addView(button("إنشاء أداة .mt1 بالذكاء الاصطناعي",this::createToolWithAi));
         request=new EditText(this); request.setMinLines(3); request.setGravity(Gravity.TOP|Gravity.START);
         request.setHint("صف الإضافة المطلوبة: مثلاً ثيم زجاجي أزرق داكن مع تباين واضح...");
         request.setTextSize(14); request.setPadding(dp(10),dp(8),dp(10),dp(8));
@@ -199,6 +200,74 @@ public class ExtensionActivity extends Activity {
                 });
             }catch(Exception e){String m="تعذر إنشاء شاشة الإضافة: "+message(e);runOnUiThread(()->status.setText(m));}
         }).start();
+    }
+
+    private void createToolWithAi(){
+        final String task=request.getText().toString().trim();
+        if(task.isEmpty()){toast("اكتب وصف الأداة أولاً");return;}
+        if(Store.key().isEmpty()){toast("أضف مفتاح OpenRouter من الإعدادات أولاً");return;}
+        status.setText("يتم إعداد تعريف الأداة وفحص العمليات المسموحة...");
+        new Thread(()->{
+            try{
+                JSONArray msgs=new JSONArray();
+                JSONObject sys=new JSONObject();sys.put("role","system");
+                sys.put("content","أنت منشئ إضافات أدوات Mi_Max Ai بصيغة .mt1 API v1. لا تكتب أوامر shell أو Java أو Python أو JavaScript ولا تنشئ كوداً قابلاً للتنفيذ. أعد JSON فقط بالشكل {\\"id\\":\\"file_tool_01\\",\\"name\\":\\"اسم الأداة\\",\\"description\\":\\"وصف\\",\\"title\\":\\"عنوان الشاشة\\",\\"actions\\":[{\\"id\\":\\"inspect\\",\\"title\\":\\"فحص الملف\\",\\"kind\\":\\"file_info\\"}]}. الأنواع الوحيدة المسموحة: file_info, sha256, hex_preview, text_preview, detect_image. اختر العمليات التي تلائم طلب المستخدم فقط، بحد أقصى 10. لا Markdown.");
+                msgs.put(sys);JSONObject user=new JSONObject();user.put("role","user");user.put("content",task);msgs.put(user);
+                String answer=Api.chat(Store.key(),Models.resolve(Store.model()),msgs,0.2,false,null,null);
+                JSONObject spec=parseToolJson(answer);
+                File archive=buildToolPackage(spec);
+                runOnUiThread(()->{
+                    pendingExport=archive;status.setText("تم إنشاء حزمة أداة .mt1 وفحصها.");
+                    new AlertDialog.Builder(this).setTitle("الأداة جاهزة")
+                        .setMessage("تم إنشاء "+spec.optString("name")+" بصيغة .mt1. هل تريد تثبيتها الآن؟")
+                        .setNegativeButton("لاحقاً",(d,w)->exportPackageFile(archive))
+                        .setPositiveButton("تثبيت",(d,w)->{
+                            try{engine.install(Uri.fromFile(archive));refresh();toast("تم تثبيت الأداة. فعّلها ثم افتحها.");}
+                            catch(Exception e){toast("فشل التثبيت: "+message(e));}
+                        }).show();
+                });
+            }catch(Exception e){String m="تعذر إنشاء الأداة: "+message(e);runOnUiThread(()->status.setText(m));}
+        }).start();
+    }
+
+    private JSONObject parseToolJson(String raw)throws Exception{
+        int a=raw.indexOf('{'),b=raw.lastIndexOf('}');
+        if(a<0||b<=a)throw new Exception("لم يرجع النموذج JSON صالحاً");
+        JSONObject o=new JSONObject(raw.substring(a,b+1));
+        String id=o.optString("id","").toLowerCase(Locale.ROOT);
+        if(!id.matches("[a-z0-9._-]{3,48}"))throw new Exception("معرّف الأداة غير صالح");
+        JSONArray actions=o.optJSONArray("actions");
+        if(actions==null||actions.length()<1||actions.length()>10)throw new Exception("عدد العمليات غير صالح");
+        java.util.HashSet<String> ids=new java.util.HashSet<>();
+        java.util.List<String> allowed=java.util.Arrays.asList("file_info","sha256","hex_preview","text_preview","detect_image");
+        for(int i=0;i<actions.length();i++){
+            JSONObject action=actions.getJSONObject(i);
+            String actionId=action.optString("id","").toLowerCase(Locale.ROOT);
+            if(!actionId.matches("[a-z0-9._-]{2,48}")||!ids.add(actionId))throw new Exception("معرّف عملية غير صالح أو مكرر");
+            if(!allowed.contains(action.optString("kind","")))throw new Exception("العملية المطلوبة غير مدعومة");
+            if(action.optString("title","").trim().isEmpty()||action.optString("title").length()>80)throw new Exception("عنوان العملية غير صالح");
+        }
+        return o;
+    }
+
+    private File buildToolPackage(JSONObject spec)throws Exception{
+        String base=spec.optString("id");
+        String id=base+"_"+Long.toString(System.currentTimeMillis(),36);
+        JSONObject manifest=new JSONObject();
+        manifest.put("format","MiMaxExtension");manifest.put("formatVersion",1);
+        manifest.put("apiVersion",1);manifest.put("id",id);manifest.put("name",spec.optString("name",id));
+        manifest.put("version","1.0.0");manifest.put("type","tool");
+        manifest.put("description",spec.optString("description","أداة إضافية"));
+        manifest.put("permissions",new JSONArray());
+        JSONObject tool=new JSONObject();tool.put("title",spec.optString("title",spec.optString("name")));
+        tool.put("actions",spec.getJSONArray("actions"));
+        File out=new File(getCacheDir(),id+".mt1");
+        try(ZipOutputStream zip=new ZipOutputStream(new FileOutputStream(out))){
+            addEntry(zip,"manifest.json",manifest.toString(2));
+            addEntry(zip,"app/tool.json",tool.toString(2));
+            addEntry(zip,"README.txt","Mi_Max Ai declarative tool extension. Host allow-listed operations only; no executable code.");
+        }
+        return out;
     }
 
     private JSONObject parseUiJson(String raw)throws Exception{
