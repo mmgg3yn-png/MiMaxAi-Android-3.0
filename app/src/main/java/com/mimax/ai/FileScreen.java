@@ -42,6 +42,7 @@ import java.util.Comparator;
 import java.util.Date;
 import java.util.List;
 import java.util.Locale;
+import org.json.JSONObject;
 
 /** مدير الملفات: تصفح كل ذاكرة الهاتف، نسخ/نقل/حذف/إعادة تسمية، وفتح ZIP وboot والصور والوسائط والنصوص. */
 class FileScreen {
@@ -283,6 +284,13 @@ class FileScreen {
         L.add("فتح"); A.add(() -> open(f));
         if (f.isFile()) { L.add("فتح كنص"); A.add(() -> openText(f)); L.add("فتح كصورة ROM"); A.add(() -> img.open(f)); }
         if (f.isFile() && ApkInstaller.isInstallable(f.getName())) { L.add("تثبيت التطبيق"); A.add(() -> a.installer.install(f)); }
+        if (f.isFile()) {
+            for (final JSONObject extension : ExtensionRuntime.fileActions(a, f)) {
+                final String label = extension.optString("_file_action_label", "تشغيل إضافة");
+                L.add(label);
+                A.add(() -> ExtensionRuntime.run(a, extension, f));
+            }
+        }
         L.add("نسخ"); A.add(() -> { clip = f; clipCut = false; a.toast("تم النسخ — افتح المجلد الوجهة واضغط «لصق»"); renderDir(cur); });
         L.add("قص"); A.add(() -> { clip = f; clipCut = true; a.toast("تم القص — افتح المجلد الوجهة واضغط «لصق»"); renderDir(cur); });
         L.add("إعادة تسمية"); A.add(() -> a.input("الاسم الجديد", f.getName(), s -> {
