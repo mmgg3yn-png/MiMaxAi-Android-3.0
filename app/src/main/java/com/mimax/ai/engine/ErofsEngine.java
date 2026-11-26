@@ -78,9 +78,9 @@ public final class ErofsEngine {
             File log = new File(context.getCacheDir(), "erofs_extract_" + System.nanoTime() + ".log");
             ProcessBuilder builder = new ProcessBuilder(
                     exe.getAbsolutePath(),
-                    "-i=" + raw.getAbsolutePath(),
+                    "-i", raw.getAbsolutePath(),
                     "-x", "-f", "-s", "-T2",
-                    "-o=" + output.getAbsolutePath());
+                    "-o", output.getAbsolutePath());
             builder.redirectErrorStream(true).redirectOutput(log);
             String previousLibPath = builder.environment().get("LD_LIBRARY_PATH");
             builder.environment().put("LD_LIBRARY_PATH", dirOf(exe)
