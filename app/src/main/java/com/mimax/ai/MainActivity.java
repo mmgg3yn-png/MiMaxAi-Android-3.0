@@ -1614,7 +1614,7 @@ public class MainActivity extends Activity {
         p.addView(row("WEB+", "اختصارات المواقع", "عرض وإدارة أسماء المواقع المحفوظة في المتصفح", v -> { Intent bi = new Intent(MainActivity.this, BrowserActivity.class); bi.putExtra("manage_shortcuts", true); startActivity(bi); }));
         p.addView(row("TERM", "Terminal محلي", "تشغيل pkg وapt وpip وnpm عبر Termux بعد الربط", v -> startActivity(new Intent(MainActivity.this, TerminalActivity.class))));
         p.addView(row("AGENT", "AI Agent", "تحليل ملفات مساحة العمل وإنشاء تعديلات بموافقتك", v -> startActivity(new Intent(MainActivity.this, AgentActivity.class))));
-        p.addView(row("MT1", "الإضافات وAI Extension Creator", "تثبيت حزم .mt1 وإنشاء إضافات بالذكاء الاصطناعي", v -> startActivity(new Intent(MainActivity.this, ExtensionActivity.class))));
+        p.addView(row("MT1", "الإضافات وAI Extension Creator", "متجر الإضافات والصلاحيات والتحديث والاستعادة", v -> startActivity(new Intent(MainActivity.this, ExtensionManagerActivity.class))));
         p.addView(row("IDE", "Developer Studio", "محررات HTML وPython وتحويل المشاريع إلى APK", v -> startActivity(new Intent(MainActivity.this, DeveloperStudioActivity.class))));
         p.addView(row("THEME", "Theme Studio", "استيراد وإنشاء ثيمات مستقلة بصيغة .mt_1", v -> startActivity(new Intent(MainActivity.this, ThemeStudioActivity.class))));
         p.addView(row("PC", "اتصال الكمبيوتر", "ADB وFastboot عبر الكمبيوتر على نفس الشبكة", v -> startActivity(new Intent(MainActivity.this, RemotePcActivity.class))));
