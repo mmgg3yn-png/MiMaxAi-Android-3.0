@@ -80,7 +80,7 @@ This file is the persistent scope register for the 3.2 upgrade. A feature is **n
 - [ ] Changes are opt-in and reversible.
 
 ### L. Full backup and restore — FIRST IMPLEMENTATION ADDED; TESTS PENDING
-- [x] First implementation: password-encrypted archive of app-private files, databases, SharedPreferences, app-specific external files/cache, no-backup files and code cache. Credentials are included only inside the encrypted archive.\n- [ ] Validate backup/restore on device, large archives, incorrect passwords, interrupted I/O and rollback behavior.
+- [x] First implementation: password-encrypted archive of app-private files, databases, SharedPreferences, app-specific external files/cache, no-backup files and code cache. Credentials are included only inside the encrypted archive.\n- [x] Added SHA-256 validation, encrypted AES-GCM archive, path traversal checks, file timestamps and executable/read/write metadata preservation.\n- [ ] Validate backup/restore on device, large archives, incorrect passwords, interrupted I/O and rollback behavior.
 - [ ] Include app-specific external files and removable-storage content only when the user explicitly selects/grants access.
 - [ ] Full and selective backup/restore; automatic scheduled/pre-update backup where Android permits.
 - [ ] Stage and validate restore before replacing live data; keep a rollback copy; verify SHA-256 and report skipped/inaccessible items.
@@ -103,4 +103,4 @@ This file is the persistent scope register for the 3.2 upgrade. A feature is **n
 - Baseline: branch `feature/mimaxai-3.1-complete-upgrade`, commit `5d6a4f43fb3268fa8a28855296fad24688f5a722`.
 - Baseline GitHub Actions run `45782018386`: success; artifact `MiMaxAi-3.0-Debug-APK`.
 - New work branch: `feature/mimaxai-3.2-full-upgrade`.
-- [x] Added persistent roadmap and isolated 3.2 branch.\n- [x] Added encrypted full app-data backup engine and restore staging/checksum validation.\n- [x] Added settings entry for application restart.\n- [x] Added developer-options disable button without deleting saved customization.\n- [ ] First GitHub Actions build and runtime validation pending.
+- [x] Added persistent roadmap and isolated 3.2 branch.\n- [x] Added encrypted full app-data backup engine and restore staging/checksum validation.\n- [x] Added settings entry for application restart.\n- [x] Added developer-options disable button without deleting saved customization.\n- [x] GitHub Actions build succeeded for commit `23b70a2764b495e8985880f38f78dc7ca87d7e00` (run `45799143016`); artifact uploaded.\n- [ ] Runtime validation on Android 14 Go / ARM32 still pending.
