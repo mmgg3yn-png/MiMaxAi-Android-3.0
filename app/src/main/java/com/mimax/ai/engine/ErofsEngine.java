@@ -26,20 +26,37 @@ public final class ErofsEngine {
         String abi = supportedAbi();
         File dir = new File(context.getFilesDir(), "engines/erofs/" + abi);
         if (!dir.isDirectory() && !dir.mkdirs()) throw new Exception("تعذر إنشاء مجلد محرك EROFS");
-        File exe = new File(dir, "extract.erofs");
-        if (!exe.isFile() || exe.length() == 0) {
-            try (InputStream in = context.getAssets().open("engines/erofs/" + abi + "/extract.erofs");
-                 FileOutputStream out = new FileOutputStream(exe)) {
-                byte[] b = new byte[32768];
-                int n;
-                while ((n = in.read(b)) != -1) out.write(b, 0, n);
-                out.getFD().sync();
+        String assetDir = "engines/erofs/" + abi;
+        String[] bundled = context.getAssets().list(assetDir);
+        if (bundled == null || bundled.length == 0)
+            throw new Exception("لم تُضمّن ملفات محرك EROFS لمعمارية " + abi + " في هذه النسخة");
+        for (String name : bundled) {
+            File target = new File(dir, name);
+            boolean copy = !target.isFile();
+            if (!copy) {
+                try (InputStream probe = context.getAssets().open(assetDir + "/" + name)) {
+                    copy = target.length() != probe.available();
+                }
+            }
+            if (copy) {
+                try (InputStream in = context.getAssets().open(assetDir + "/" + name);
+                     FileOutputStream out = new FileOutputStream(target)) {
+                    byte[] b = new byte[32768];
+                    int n;
+                    while ((n = in.read(b)) != -1) out.write(b, 0, n);
+                    out.getFD().sync();
+                }
             }
         }
+        File exe = new File(dir, "extract.erofs");
+        if (!exe.isFile() || exe.length() == 0)
+            throw new Exception("ملف extract.erofs غير موجود داخل المحرك المضمّن");
         if (!exe.setExecutable(true, true) && !exe.canExecute())
             throw new Exception("تعذر تفعيل صلاحية تشغيل محرك EROFS");
         return exe;
     }
+
+    private static String dirOf(File file) { return file.getParentFile().getAbsolutePath(); }
 
     /** Extracts a complete EROFS filesystem. Sparse images are expanded to a private temporary raw image first. */
     public static File extractAll(Context context, File image, boolean sparse, File output) throws Exception {
@@ -59,14 +76,16 @@ public final class ErofsEngine {
             }
             File exe = executable(context);
             File log = new File(context.getCacheDir(), "erofs_extract_" + System.nanoTime() + ".log");
-            Process process = new ProcessBuilder(
+            ProcessBuilder builder = new ProcessBuilder(
                     exe.getAbsolutePath(),
                     "-i=" + raw.getAbsolutePath(),
                     "-x", "-f", "-s", "-T2",
-                    "-o=" + output.getAbsolutePath())
-                    .redirectErrorStream(true)
-                    .redirectOutput(log)
-                    .start();
+                    "-o=" + output.getAbsolutePath());
+            builder.redirectErrorStream(true).redirectOutput(log);
+            String previousLibPath = builder.environment().get("LD_LIBRARY_PATH");
+            builder.environment().put("LD_LIBRARY_PATH", dirOf(exe)
+                    + (previousLibPath == null || previousLibPath.isEmpty() ? "" : ":" + previousLibPath));
+            Process process = builder.start();
             int exit = process.waitFor();
             StringBuilder detail = new StringBuilder();
             if (log.isFile()) {
