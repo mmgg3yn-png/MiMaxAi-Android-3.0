@@ -2,7 +2,6 @@ package com.mimax.ai;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.os.Build;
 import android.app.AlertDialog;
 import android.graphics.Color;
 import android.net.Uri;
@@ -28,7 +27,6 @@ import java.io.FileOutputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Persistent terminal workspaces. Session metadata, history, environment, cwd and transcript
