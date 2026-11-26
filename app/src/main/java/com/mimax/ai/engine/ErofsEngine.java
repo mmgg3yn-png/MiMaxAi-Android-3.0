@@ -58,33 +58,54 @@ public final class ErofsEngine {
 
     private static String dirOf(File file) { return file.getParentFile().getAbsolutePath(); }
 
-    /** Extracts a complete EROFS filesystem. Sparse images are expanded to a private temporary raw image first. */
+    private static String imageBaseName(File image) {
+        String name = image.getName();
+        int dot = name.lastIndexOf('.');
+        return dot > 0 ? name.substring(0, dot) : name;
+    }
+
+    /** Removes a temporary tree without following symbolic links. */
+    private static void deleteTree(File file) {
+        if (file == null || !file.exists()) return;
+        File[] children = file.listFiles();
+        if (children != null) for (File child : children) deleteTree(child);
+        file.delete();
+    }
+
+    /** Extracts the EROFS tree into exactly the requested output directory. */
     public static File extractAll(Context context, File image, boolean sparse, File output) throws Exception {
         if (!image.isFile() || image.length() == 0) throw new Exception("ملف الصورة غير موجود أو فارغ");
         if (output.getCanonicalFile().equals(image.getCanonicalFile()))
             throw new Exception("مجلد الاستخراج لا يمكن أن يكون ملف الصورة نفسه");
+        if (output.exists()) throw new Exception("مجلد الإخراج موجود مسبقاً؛ اختر اسماً آخر حتى لا تُستبدل ملفاتك");
         File parent = output.getAbsoluteFile().getParentFile();
-        if (parent != null && !parent.isDirectory() && !parent.mkdirs())
-            throw new Exception("تعذر إنشاء مجلد الإخراج");
+        if (parent == null) throw new Exception("تعذر تحديد المجلد الأب لنتيجة الاستخراج");
+        if (!parent.isDirectory() && !parent.mkdirs())
+            throw new Exception("تعذر إنشاء المجلد الأب لنتيجة الاستخراج");
+
         File raw = image;
         File temp = null;
+        File stage = new File(parent, "." + output.getName() + ".erofs-stage-" + System.nanoTime());
+        if (!stage.mkdirs()) throw new Exception("تعذر إنشاء مجلد العمل المؤقت لمحرك EROFS");
         try {
             if (sparse) {
                 temp = new File(context.getCacheDir(), "erofs_raw_" + System.nanoTime() + ".img");
                 Sparse.toRaw(image, temp, null, null);
                 raw = temp;
             }
+
             File exe = executable(context);
             File log = new File(context.getCacheDir(), "erofs_extract_" + System.nanoTime() + ".log");
             ProcessBuilder builder = new ProcessBuilder(
                     exe.getAbsolutePath(),
-                    "--image=" + raw.getAbsolutePath(),
-                    "-x", "-f", "-s", "-T2",
-                    "--outdir=" + output.getAbsolutePath());
+                    "-i", raw.getAbsolutePath(),
+                    "-x", "-f", "-T2",
+                    "-o", stage.getAbsolutePath());
             builder.redirectErrorStream(true).redirectOutput(log);
             String previousLibPath = builder.environment().get("LD_LIBRARY_PATH");
             builder.environment().put("LD_LIBRARY_PATH", dirOf(exe)
                     + (previousLibPath == null || previousLibPath.isEmpty() ? "" : ":" + previousLibPath));
+
             Process process = builder.start();
             int exit = process.waitFor();
             StringBuilder detail = new StringBuilder();
@@ -94,24 +115,40 @@ public final class ErofsEngine {
                     String line;
                     while ((line = reader.readLine()) != null && detail.length() < 6000)
                         detail.append(line).append('\n');
+                } finally {
+                    log.delete();
                 }
-                log.delete();
             }
             if (exit != 0) {
-                deleteTree(output);
                 throw new Exception("فشل محرك EROFS (رمز " + exit + "): " + detail.toString().trim());
             }
-            if (!output.isDirectory()) throw new Exception("انتهى محرك EROFS دون إنشاء مجلد الإخراج");
+
+            // extract.erofs appends the image basename to --outdir; normalize that
+            // generated child directory into the exact destination selected by the user.
+            File extractedRoot = new File(stage, imageBaseName(raw));
+            if (!extractedRoot.isDirectory()) {
+                throw new Exception("انتهى محرك EROFS دون إنشاء شجرة الملفات المتوقعة. سجل المحرك: "
+                        + detail.toString().trim());
+            }
+
+            // Keep Android fs_config / file_contexts / mkfs metadata with the extracted tree.
+            File config = new File(stage, "config");
+            if (config.isDirectory()) {
+                File metadata = new File(extractedRoot, ".erofs_metadata");
+                if (metadata.exists() || !config.renameTo(metadata)) {
+                    throw new Exception("تم استخراج الملفات لكن تعذر حفظ بيانات EROFS الوصفية");
+                }
+            }
+
+            if (!extractedRoot.renameTo(output)) {
+                throw new Exception("اكتمل الاستخراج لكن تعذر نقل مجلد الملفات إلى المسار النهائي");
+            }
+            if (!output.isDirectory())
+                throw new Exception("لم يتم إنشاء مجلد الملفات النهائي بعد الاستخراج");
             return output;
         } finally {
+            deleteTree(stage);
             if (temp != null) temp.delete();
         }
-    }
-
-    private static void deleteTree(File file) {
-        if (file == null || !file.exists()) return;
-        File[] children = file.listFiles();
-        if (children != null) for (File child : children) deleteTree(child);
-        file.delete();
     }
 }
