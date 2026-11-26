@@ -263,23 +263,66 @@ public final class FullBackupEngine {
             LinkedHashMap<String, Root> destinations = roots(context);
             JSONArray savedRoots = manifest.optJSONArray("roots");
             if (savedRoots == null) throw new Exception("قائمة مجلدات النسخة غير موجودة");
+
+            // Snapshot every destination before changing any live data. If a later root fails,
+            // restore the already-replaced roots in reverse order.
+            File rollbackBase = new File(stage, "rollback");
+            if (!rollbackBase.mkdirs() && !rollbackBase.isDirectory())
+                throw new Exception("تعذر تجهيز مساحة التراجع");
+            LinkedHashMap<String, File> rollbackDirs = new LinkedHashMap<>();
+            LinkedHashMap<String, Boolean> hadOriginal = new LinkedHashMap<>();
+            LinkedHashMap<String, Root> operations = new LinkedHashMap<>();
+            LinkedHashMap<String, Boolean> shouldExist = new LinkedHashMap<>();
             for (int i=0;i<savedRoots.length();i++) {
                 JSONObject savedRoot = savedRoots.getJSONObject(i);
                 String id = savedRoot.optString("id");
                 if (!id.matches("[A-Za-z0-9_-]{1,64}")) throw new Exception("معرّف جذر غير صالح");
                 Root dest = destinations.get(id);
                 if (dest == null || dest.dir == null) { report.skippedRoots++; continue; }
+                boolean present = savedRoot.optBoolean("present", true);
                 File from = new File(stage, id);
-                if (!savedRoot.optBoolean("present", true)) {
-                    File empty = new File(stage, "empty_" + id);
-                    if (!empty.mkdirs() && !empty.isDirectory()) throw new Exception("تعذر تجهيز مجلد استعادة فارغ");
-                    replaceDirectory(empty, dest.dir);
-                    report.restoredRoots++;
-                    continue;
+                if (present && !from.isDirectory()) throw new Exception("مجلد مفقود من النسخة: " + id);
+                operations.put(id, dest);
+                shouldExist.put(id, present);
+                boolean existed = dest.dir.exists();
+                hadOriginal.put(id, existed);
+                if (existed) {
+                    File snapshot = new File(rollbackBase, id);
+                    copyTree(dest.dir, snapshot);
+                    rollbackDirs.put(id, snapshot);
                 }
-                if (!from.isDirectory()) throw new Exception("مجلد مفقود من النسخة: " + id);
-                replaceDirectory(from, dest.dir);
-                report.restoredRoots++;
+            }
+
+            java.util.ArrayList<String> applied = new java.util.ArrayList<>();
+            try {
+                for (String id : operations.keySet()) {
+                    Root dest = operations.get(id);
+                    if (Boolean.TRUE.equals(shouldExist.get(id))) {
+                        replaceDirectory(new File(stage, id), dest.dir);
+                    } else if (dest.dir.exists()) {
+                        File empty = new File(stage, "empty_" + id);
+                        if (!empty.mkdirs() && !empty.isDirectory()) throw new Exception("تعذر تجهيز مجلد استعادة فارغ");
+                        replaceDirectory(empty, dest.dir);
+                    }
+                    applied.add(id);
+                    report.restoredRoots++;
+                }
+            } catch (Exception applyError) {
+                String rollbackError = "";
+                for (int i=applied.size()-1;i>=0;i--) {
+                    String id = applied.get(i);
+                    try {
+                        Root dest = operations.get(id);
+                        if (Boolean.TRUE.equals(hadOriginal.get(id))) {
+                            replaceDirectory(rollbackDirs.get(id), dest.dir);
+                        } else {
+                            deleteTree(dest.dir);
+                        }
+                    } catch (Exception e) {
+                        rollbackError += " " + id + ":" + e.getMessage();
+                    }
+                }
+                throw new Exception("فشلت الاستعادة. تمت محاولة إعادة البيانات السابقة." + rollbackError, applyError);
             }
             return report;
         } finally {
