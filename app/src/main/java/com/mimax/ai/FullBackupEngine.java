@@ -176,7 +176,8 @@ public final class FullBackupEngine {
                         File root = new File(stage, rootId);
                         File out = relative.isEmpty() ? root : new File(root, relative);
                         String canonical = out.getCanonicalPath();
-                        String rootCanonical = root.getCanonicalPath();\n                        if (!canonical.equals(rootCanonical) && !canonical.startsWith(rootCanonical + File.separator)) throw new Exception("مسار ملف غير آمن");
+                        String rootCanonical = root.getCanonicalPath();
+                        if (!canonical.equals(rootCanonical) && !canonical.startsWith(rootCanonical + File.separator)) throw new Exception("مسار ملف غير آمن");
                         if (entry.isDirectory() || name.endsWith("/")) out.mkdirs();
                         else {
                             File parent = out.getParentFile(); if (parent != null) parent.mkdirs();
@@ -194,8 +195,6 @@ public final class FullBackupEngine {
                     }
                     zip.closeEntry();
                 }
-            } catch (javax.crypto.AEADBadTagException badPassword) {
-                throw new Exception("كلمة المرور غير صحيحة أو أن النسخة تالفة");
             } catch (java.io.IOException cryptoOrZip) {
                 throw new Exception("تعذر فك النسخة. تحقق من كلمة المرور وسلامة الملف");
             }
