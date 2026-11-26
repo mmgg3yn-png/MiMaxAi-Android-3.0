@@ -77,7 +77,7 @@ jobs:
           test -n "$MKFS" && test -n "$EXTRACT"
           printf 'Mi_Max Ai EROFS integration test\\n' > /tmp/erofs-fixture/src/sub/test.txt
           "$MKFS" -zlz4 /tmp/erofs-fixture/test.erofs /tmp/erofs-fixture/src
-          "$EXTRACT" -i=/tmp/erofs-fixture/test.erofs -x -f -s -T2 -o=/tmp/erofs-fixture/out
+          "$EXTRACT" -i /tmp/erofs-fixture/test.erofs -x -f -s -T2 -o /tmp/erofs-fixture/out
           cmp /tmp/erofs-fixture/src/sub/test.txt /tmp/erofs-fixture/out/sub/test.txt
 
       - name: Build Debug APK
