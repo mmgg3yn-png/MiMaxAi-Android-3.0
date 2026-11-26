@@ -93,6 +93,7 @@ class ImgScreen {
         if (!info.sparse) p.addView(a.btn("تحويل Raw → Sparse", a.SF2, a.TX, v -> toSparse()));
         if (info.kind.equals("super") && ok()) superSection(p);
         if (info.kind.equals("ext4") && ok()) ext4Section(p);
+        if (info.kind.equals("erofs") && ok()) erofsSection(p);
         a.setPage(p);
     }
 
@@ -202,6 +203,18 @@ class ImgScreen {
             }, () -> a.showError("تم بناء super الجديد:\n" + out.getPath() + (alsoSparse ? "\nوتمّ حفظ نسخة Sparse بجانبه." : "")
                     + "\n\nتحقق التطبيق من قراءة الناتج ومطابقة الأقسام المستبدلة بايتاً ببايت.\nالفلاش (fastboot) مسؤوليتك، والتطبيق لا يكتب على أقسام الجهاز."));
         });
+    }
+
+    // ---------------- EROFS ----------------
+    void erofsSection(LinearLayout p) {
+        final File dest = sibling("_files");
+        p.addView(a.note("محرك EROFS فعلي مدمج لمعمارية ARM32 وARM64. سيُستخرج محتوى الصورة إلى مجلد مستقل، مع إبقاء ملف IMG الأصلي دون تغيير."));
+        p.addView(a.btn("استخراج كل ملفات EROFS إلى مجلد", a.AC, a.ON, v -> {
+            final File target = unique(dest);
+            a.runBgP("استخراج ملفات EROFS", null,
+                    progress -> com.mimax.ai.engine.ErofsEngine.extractAll(a, img, info.sparse, target),
+                    () -> a.showError("اكتمل استخراج EROFS إلى:\n" + target.getPath()));
+        }));
     }
 
     // ---------------- ext4 ----------------
