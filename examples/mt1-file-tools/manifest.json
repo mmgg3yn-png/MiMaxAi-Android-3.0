@@ -1,0 +1,11 @@
+{
+  "format": "MiMaxExtension",
+  "formatVersion": 1,
+  "apiVersion": 1,
+  "id": "sample_file_tools",
+  "name": "أدوات الملفات التجريبية",
+  "version": "1.0.0",
+  "type": "tool",
+  "description": "معلومات الملفات وبصمات SHA-256 ومعاينة Hex والنص والتعرف الأولي على الصور.",
+  "permissions": []
+}
