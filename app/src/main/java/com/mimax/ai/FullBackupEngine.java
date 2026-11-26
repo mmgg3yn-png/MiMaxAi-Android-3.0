@@ -148,7 +148,7 @@ public final class FullBackupEngine {
 
     public static RestoreReport restore(Context context, Uri source, String password) throws Exception {
         if (password == null || password.length() < 8) throw new Exception("أدخل كلمة مرور النسخة");
-        File stage = new File(context.getCacheDir(), "mimax_restore_stage_" + System.currentTimeMillis());
+        File stage = new File(context.getApplicationInfo().dataDir, "mimax_restore_stage_" + System.currentTimeMillis());
         if (!stage.mkdirs()) throw new Exception("تعذر إنشاء مجلد الاستعادة المؤقت");
         RestoreReport report = new RestoreReport();
         try {
