@@ -31,8 +31,8 @@ This file is the persistent scope register for the 3.2 upgrade. A feature is **n
 - [ ] Per-extension logs, developer kit, extension updates independent from APK where safe.
 - [ ] Sandboxed declarative/script APIs; no implicit root or unrestricted OS access.
 
-### D. Standalone terminal and runtimes — NOT STARTED
-- [ ] Remove Termux app dependency, RUN_COMMAND permission, Termux receiver/query/bridge paths.
+### D. Standalone terminal and runtimes — FIRST IMPLEMENTATION ADDED; RUNTIME TESTS PENDING
+- [x] Removed Termux app dependency, RUN_COMMAND permission, Termux receiver/query/bridge paths.\n- [x] Terminal now routes commands through the in-app Android shell and includes a manager for installing compatible ELF/script/ZIP/TAR.GZ tools.\n- [ ] Validate commands and installed tools on ARM32 Android 14 Go.
 - [ ] Embed an Android-compatible shell/tool runtime and package manager with actual ARM32 binaries; ARM64 binaries when available.
 - [ ] Python, Git and common Android/Linux utilities where build/runtime compatibility allows.
 - [ ] Sessions, tabs, history, environment, workspace, offline installed tools.
