@@ -122,13 +122,18 @@ public final class FullBackupEngine {
             while (rel.startsWith(File.separator)) rel = rel.substring(1);
             rel = rel.replace(File.separatorChar, '/');
             String entry = zipBase + "/" + rel;
+            if (java.nio.file.Files.isSymbolicLink(child.toPath())) continue;
             if (child.isDirectory()) {
-                zip.putNextEntry(new ZipEntry(entry + "/")); zip.closeEntry();
+                ZipEntry directoryEntry = new ZipEntry(entry + "/");
+                directoryEntry.setTime(child.lastModified());
+                zip.putNextEntry(directoryEntry); zip.closeEntry();
                 addTree(zip, child, entry, rootId, checksums, count, bytes);
             } else if (child.isFile()) {
                 if (++count[0] > MAX_ENTRIES) throw new Exception("عدد الملفات أكبر من الحد الآمن");
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
-                zip.putNextEntry(new ZipEntry(entry));
+                ZipEntry fileEntry = new ZipEntry(entry);
+                fileEntry.setTime(child.lastModified());
+                zip.putNextEntry(fileEntry);
                 try (InputStream in = new BufferedInputStream(new FileInputStream(child))) {
                     byte[] buffer = new byte[32768]; int n;
                     while ((n = in.read(buffer)) != -1) {
@@ -178,8 +183,10 @@ public final class FullBackupEngine {
                         String canonical = out.getCanonicalPath();
                         String rootCanonical = root.getCanonicalPath();
                         if (!canonical.equals(rootCanonical) && !canonical.startsWith(rootCanonical + File.separator)) throw new Exception("مسار ملف غير آمن");
-                        if (entry.isDirectory() || name.endsWith("/")) out.mkdirs();
-                        else {
+                        if (entry.isDirectory() || name.endsWith("/")) {
+                            out.mkdirs();
+                            if (entry.getTime() > 0) out.setLastModified(entry.getTime());
+                        } else {
                             File parent = out.getParentFile(); if (parent != null) parent.mkdirs();
                             try (OutputStream file = new BufferedOutputStream(new FileOutputStream(out))) {
                                 int n; while ((n=zip.read(buffer))!=-1) {
@@ -188,6 +195,7 @@ public final class FullBackupEngine {
                                     file.write(buffer,0,n);
                                 }
                             }
+                            if (entry.getTime() > 0) out.setLastModified(entry.getTime());
                             report.files++;
                         }
                     } else {
@@ -200,14 +208,24 @@ public final class FullBackupEngine {
             }
             if (manifest == null || !"MiMaxAiFullBackup".equals(manifest.optString("format"))
                     || manifest.optInt("version") != VERSION) throw new Exception("إصدار النسخة غير مدعوم أو ملفها غير مكتمل");
+            if (!context.getPackageName().equals(manifest.optString("package")))
+                throw new Exception("هذه النسخة ليست لنفس حزمة التطبيق");
             JSONObject checksums = manifest.optJSONObject("files");
             if (checksums == null) throw new Exception("قائمة التحقق غير موجودة");
+            if (checksums.length() != report.files || manifest.optInt("fileCount", -1) != report.files)
+                throw new Exception("عدد الملفات لا يطابق بيان النسخة");
             Iterator<String> keys = checksums.keys();
             while (keys.hasNext()) {
                 String key = keys.next();
                 int slash = key.indexOf('/');
                 if (slash < 1) throw new Exception("بيانات التحقق غير صالحة");
-                File file = new File(new File(stage, key.substring(0, slash)), key.substring(slash+1));
+                String rootId = key.substring(0, slash);
+                if (!rootId.matches("[A-Za-z0-9_-]{1,64}")) throw new Exception("معرّف جذر غير صالح");
+                File root = new File(stage, rootId);
+                File file = new File(root, key.substring(slash+1));
+                String rootPath = root.getCanonicalPath(), filePath = file.getCanonicalPath();
+                if (!filePath.startsWith(rootPath + File.separator))
+                    throw new Exception("مسار تحقق غير آمن");
                 if (!file.isFile() || !hex(sha256(file)).equalsIgnoreCase(checksums.getString(key)))
                     throw new Exception("فشل التحقق من سلامة الملف: " + key);
             }
@@ -216,11 +234,20 @@ public final class FullBackupEngine {
             JSONArray savedRoots = manifest.optJSONArray("roots");
             if (savedRoots == null) throw new Exception("قائمة مجلدات النسخة غير موجودة");
             for (int i=0;i<savedRoots.length();i++) {
-                String id = savedRoots.getJSONObject(i).optString("id");
-                File from = new File(stage, id);
+                JSONObject savedRoot = savedRoots.getJSONObject(i);
+                String id = savedRoot.optString("id");
+                if (!id.matches("[A-Za-z0-9_-]{1,64}")) throw new Exception("معرّف جذر غير صالح");
                 Root dest = destinations.get(id);
-                if (!from.isDirectory()) continue;
                 if (dest == null || dest.dir == null) { report.skippedRoots++; continue; }
+                File from = new File(stage, id);
+                if (!savedRoot.optBoolean("present", true)) {
+                    File empty = new File(stage, "empty_" + id);
+                    if (!empty.mkdirs() && !empty.isDirectory()) throw new Exception("تعذر تجهيز مجلد استعادة فارغ");
+                    replaceDirectory(empty, dest.dir);
+                    report.restoredRoots++;
+                    continue;
+                }
+                if (!from.isDirectory()) throw new Exception("مجلد مفقود من النسخة: " + id);
                 replaceDirectory(from, dest.dir);
                 report.restoredRoots++;
             }
@@ -247,6 +274,8 @@ public final class FullBackupEngine {
         out.put("databases", new Root("databases", c.getDatabasePath("_probe_").getParentFile()));
         out.put("shared_prefs", new Root("shared_prefs", new File(data, "shared_prefs")));
         out.put("no_backup", new Root("no_backup", c.getNoBackupFilesDir()));
+        out.put("app_webview", new Root("app_webview", new File(data, "app_webview")));
+        out.put("app_textures", new Root("app_textures", new File(data, "app_textures")));
         out.put("cache", new Root("cache", c.getCacheDir()));
         if (Build.VERSION.SDK_INT >= 21) out.put("code_cache", new Root("code_cache", c.getCodeCacheDir()));
         File[] ext = c.getExternalFilesDirs(null);
