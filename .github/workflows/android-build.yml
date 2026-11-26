@@ -51,7 +51,7 @@ jobs:
           curl -fL --retry 3 'https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Android_arm64-v8a.zip' -o /tmp/erofs-arm64.zip
           echo 'a5b7606bc82e1a4d7890db617f00df25f9d76a3ef85f31af9157d77a152d5f7d  /tmp/erofs-arm32.zip' > /tmp/arm32.sha
           echo '986a3880b7afc0b5efcc58f75268f2c9d03d86773ae8b7ab2c8692215740e21e  /tmp/erofs-arm64.zip' > /tmp/arm64.sha
-          sha256sum -c /tmp/arm32.sha /tmp/arm64.sha
+          cat /tmp/arm32.sha /tmp/arm64.sha | sha256sum -c -
           unzip -q /tmp/erofs-arm32.zip -d /tmp/erofs-arm32
           unzip -q /tmp/erofs-arm64.zip -d /tmp/erofs-arm64
           A32="$(find /tmp/erofs-arm32 -type f -name extract.erofs -print -quit)"
