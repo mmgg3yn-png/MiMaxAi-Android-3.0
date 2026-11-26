@@ -18,6 +18,7 @@
     </queries>
 
     <application
+        android:name=".MiMaxApplication"
         android:usesCleartextTraffic="true"
         android:allowBackup="false"
         android:requestLegacyExternalStorage="true"
@@ -28,6 +29,13 @@
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
 
         <activity android:name=".ExtensionScreenActivity" android:exported="false" />
+        <activity android:name=".ExtensionManagerActivity" android:exported="false" />
+        <activity android:name=".ExtensionRecoveryActivity" android:exported="false" />
+        <activity android:name=".ExtensionDeveloperActivity" android:exported="false" />
+        <activity android:name=".ExtensionStoreActivity" android:exported="false" />
+        <activity android:name=".CapabilityActivity" android:exported="false" />
+        <activity android:name=".LanguagePackActivity" android:exported="false" />
+        <activity android:name=".LogoBinExtractorActivity" android:exported="false" />
         <activity android:name=".ThemeStudioActivity" android:exported="false" />
         <activity android:name=".DeveloperStudioActivity" android:exported="false" />
         <activity android:name=".ExtensionActivity" android:exported="false" />
