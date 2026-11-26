@@ -33,6 +33,7 @@ import android.webkit.WebViewClient;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
+import android.widget.HorizontalScrollView;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -51,6 +52,11 @@ public class BrowserActivity extends Activity {
     private EditText address;
     private ProgressBar progress;
     private LinearLayout root, toolbar, sideRail, downloadRows;
+    private LinearLayout tabStrip;
+    private FrameLayout browserArea;
+    private final ArrayList<WebView> tabViews = new ArrayList<>();
+    private final ArrayList<String> tabTitles = new ArrayList<>();
+    private int activeTab = 0;
     private Handler ui = new Handler(Looper.getMainLooper());
     private Runnable downloadRefresh;
     private int baseColor, surfaceColor, textColor, mutedColor, accentColor;
@@ -85,38 +91,23 @@ public class BrowserActivity extends Activity {
         addButton(addressLine,"بحث",()->loadAddress(),48);
         toolbar.addView(addressLine);
         root.addView(toolbar);
+        HorizontalScrollView tabScroll = new HorizontalScrollView(this);
+        tabScroll.setHorizontalScrollBarEnabled(false);
+        tabStrip = new LinearLayout(this); tabStrip.setOrientation(LinearLayout.HORIZONTAL);
+        tabScroll.addView(tabStrip);
+        root.addView(tabScroll, new LinearLayout.LayoutParams(-1, dp(38)));
         progress=new ProgressBar(this,null,android.R.attr.progressBarStyleHorizontal);
         progress.setProgressTintList(android.content.res.ColorStateList.valueOf(accentColor));
         root.addView(progress,new LinearLayout.LayoutParams(-1,dp(2)));
-        FrameLayout browserArea=new FrameLayout(this);
-        web=new WebView(this);
-        WebSettings s=web.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);
-        s.setLoadsImagesAutomatically(true);s.setAllowFileAccess(false);s.setAllowContentAccess(true);
-        s.setJavaScriptCanOpenWindowsAutomatically(false);s.setSupportMultipleWindows(true);
-        s.setBuiltInZoomControls(true);s.setDisplayZoomControls(false);s.setMediaPlaybackRequiresUserGesture(true);
-        if(Build.VERSION.SDK_INT>=26)s.setSafeBrowsingEnabled(true);
-        if(Build.VERSION.SDK_INT>=21)s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        web.setWebViewClient(new WebViewClient(){
-            @Override public boolean shouldOverrideUrlLoading(WebView v,WebResourceRequest r){return handleUrl(r.getUrl().toString());}
-            @Override public boolean shouldOverrideUrlLoading(WebView v,String u){return handleUrl(u);}
-            @Override public void onPageFinished(WebView v,String u){address.setText(u);saveHistory(u);}
-        });
-        web.setWebChromeClient(new WebChromeClient(){
-            @Override public void onProgressChanged(WebView v,int p){progress.setProgress(p);progress.setVisibility(p>=100?View.GONE:View.VISIBLE);}
-            @Override public void onReceivedTitle(WebView v,String t){setTitle(t==null?"Mi_Max Browser":t);}
-            @Override public boolean onCreateWindow(WebView v,boolean dialog,boolean gesture,android.os.Message resultMsg){
-                WebView.HitTestResult hit=v.getHitTestResult();String u=hit==null?null:hit.getExtra();
-                if(u!=null)web.loadUrl(u);else toast("فتح النوافذ الجديدة غير مدعوم بعد");return false;
-            }
-        });
-        web.setDownloadListener((u,ua,cd,mime,len)->download(u,ua,cd,mime));
-        browserArea.addView(web,new FrameLayout.LayoutParams(-1,-1));
+        browserArea=new FrameLayout(this);
+        web=createTab(null,true);
         sideRail=new LinearLayout(this);sideRail.setOrientation(LinearLayout.VERTICAL);
         sideRail.setGravity(Gravity.CENTER);sideRail.setPadding(dp(2),dp(4),dp(2),dp(4));
         sideRail.setBackgroundColor(surfaceColor);
         addRailButton("‹",()->{if(web.canGoBack())web.goBack();});
         addRailButton("›",()->{if(web.canGoForward())web.goForward();});
         addRailButton("↻",()->web.reload());
+        addRailButton("+",()->createTab("https://www.google.com",true));
         addRailButton("⋮",this::showMenu);
         FrameLayout.LayoutParams railParams=new FrameLayout.LayoutParams(dp(42),-2,Gravity.RIGHT|Gravity.CENTER_VERTICAL);
         browserArea.addView(sideRail,railParams);
@@ -129,8 +120,16 @@ public class BrowserActivity extends Activity {
         AppPalette.apply(this,root);
         // Re-apply compact browser colors after the shared palette pass.
         address.setTextColor(textColor);address.setHintTextColor(mutedColor);
-        if(getIntent()!=null&&getIntent().getStringExtra("open_url")!=null)web.loadUrl(getIntent().getStringExtra("open_url"));
-        else if(state==null)web.loadUrl("https://www.google.com");else if(state.getString("url")!=null)web.loadUrl(state.getString("url"));
+        if (state != null && state.getStringArray("tabs") != null && state.getStringArray("tabs").length > 0) {
+            String[] savedTabs = state.getStringArray("tabs");
+            for (int i = 0; i < savedTabs.length; i++) {
+                if (i == 0) { if (savedTabs[i] != null && !savedTabs[i].isEmpty()) web.loadUrl(savedTabs[i]); }
+                else createTab(savedTabs[i], false);
+            }
+            int selected = Math.max(0, Math.min(state.getInt("active_tab", 0), tabViews.size() - 1));
+            switchTab(selected);
+        } else if(getIntent()!=null&&getIntent().getStringExtra("open_url")!=null) web.loadUrl(getIntent().getStringExtra("open_url"));
+        else web.loadUrl("https://www.google.com");
         if(getIntent()!=null&&getIntent().getBooleanExtra("manage_shortcuts",false)){ ui.postDelayed(this::showSiteShortcuts,250); getIntent().removeExtra("manage_shortcuts"); }
         if(getIntent()!=null&&getIntent().getBooleanExtra("search_widget",false)){
             address.requestFocus();
@@ -139,6 +138,103 @@ public class BrowserActivity extends Activity {
             getIntent().removeExtra("search_widget");
         }
     }
+    private WebView createTab(String initialUrl, boolean makeActive) {
+        WebView view = new WebView(this);
+        WebSettings s = view.getSettings();
+        s.setJavaScriptEnabled(true); s.setDomStorageEnabled(true);
+        s.setLoadsImagesAutomatically(true); s.setAllowFileAccess(false); s.setAllowContentAccess(true);
+        s.setJavaScriptCanOpenWindowsAutomatically(false); s.setSupportMultipleWindows(true);
+        s.setBuiltInZoomControls(true); s.setDisplayZoomControls(false); s.setMediaPlaybackRequiresUserGesture(true);
+        if (Build.VERSION.SDK_INT >= 26) s.setSafeBrowsingEnabled(true);
+        if (Build.VERSION.SDK_INT >= 21) s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+        view.setWebViewClient(new WebViewClient() {
+            @Override public boolean shouldOverrideUrlLoading(WebView v, WebResourceRequest r) { return handleUrl(r.getUrl().toString()); }
+            @Override public boolean shouldOverrideUrlLoading(WebView v, String u) { return handleUrl(u); }
+            @Override public void onPageFinished(WebView v, String u) {
+                int index = tabViews.indexOf(v);
+                if (index >= 0 && index == activeTab) address.setText(u);
+                saveHistory(u);
+                if (index >= 0 && (tabTitles.get(index) == null || tabTitles.get(index).equals("علامة جديدة"))) {
+                    tabTitles.set(index, "صفحة");
+                    renderTabStrip();
+                }
+            }
+        });
+        view.setWebChromeClient(new WebChromeClient() {
+            @Override public void onProgressChanged(WebView v, int p) {
+                if (v == web) { progress.setProgress(p); progress.setVisibility(p >= 100 ? View.GONE : View.VISIBLE); }
+            }
+            @Override public void onReceivedTitle(WebView v, String title) {
+                int index = tabViews.indexOf(v);
+                if (index >= 0) {
+                    tabTitles.set(index, title == null || title.trim().isEmpty() ? "صفحة" : title);
+                    renderTabStrip();
+                }
+                if (v == web) setTitle(title == null ? "Mi_Max Browser" : title);
+            }
+            @Override public boolean onCreateWindow(WebView v, boolean dialog, boolean gesture, android.os.Message resultMsg) {
+                WebView child = createTab(null, true);
+                WebView.WebViewTransport transport = (WebView.WebViewTransport) resultMsg.obj;
+                transport.setWebView(child);
+                resultMsg.sendToTarget();
+                return true;
+            }
+        });
+        view.setDownloadListener((u, ua, cd, mime, len) -> download(u, ua, cd, mime));
+        tabViews.add(view); tabTitles.add("علامة جديدة");
+        browserArea.addView(view, new FrameLayout.LayoutParams(-1, -1));
+        if (makeActive || web == null) switchTab(tabViews.size() - 1);
+        if (initialUrl != null && !initialUrl.isEmpty()) view.loadUrl(initialUrl);
+        renderTabStrip();
+        return view;
+    }
+
+    private void switchTab(int index) {
+        if (index < 0 || index >= tabViews.size()) return;
+        activeTab = index; web = tabViews.get(index);
+        for (int i = 0; i < tabViews.size(); i++) tabViews.get(i).setVisibility(i == index ? View.VISIBLE : View.GONE);
+        String url = web.getUrl();
+        address.setText(url == null ? "" : url);
+        progress.setProgress(0); progress.setVisibility(View.GONE);
+        setTitle(tabTitles.get(index) == null ? "Mi_Max Browser" : tabTitles.get(index));
+        renderTabStrip();
+    }
+
+    private void renderTabStrip() {
+        if (tabStrip == null) return;
+        tabStrip.removeAllViews();
+        for (int i = 0; i < tabViews.size(); i++) {
+            final int index = i;
+            LinearLayout item = new LinearLayout(this);
+            item.setOrientation(LinearLayout.HORIZONTAL);
+            Button select = new Button(this);
+            String title = tabTitles.get(i);
+            if (title == null || title.trim().isEmpty()) title = "صفحة";
+            if (title.length() > 18) title = title.substring(0, 18) + "…";
+            select.setText((i == activeTab ? "● " : "") + title);
+            select.setAllCaps(false); select.setTextSize(10); select.setMinHeight(dp(34));
+            select.setOnClickListener(v -> switchTab(index));
+            item.addView(select, new LinearLayout.LayoutParams(dp(128), dp(36)));
+            Button close = new Button(this); close.setText("×"); close.setAllCaps(false);
+            close.setTextSize(12); close.setMinHeight(dp(34));
+            close.setOnClickListener(v -> closeTab(index));
+            item.addView(close, new LinearLayout.LayoutParams(dp(38), dp(36)));
+            tabStrip.addView(item);
+        }
+    }
+
+    private void closeTab(int index) {
+        if (index < 0 || index >= tabViews.size()) return;
+        if (tabViews.size() == 1) { tabViews.get(0).loadUrl("https://www.google.com"); return; }
+        WebView closing = tabViews.remove(index);
+        tabTitles.remove(index);
+        browserArea.removeView(closing);
+        closing.stopLoading(); closing.destroy();
+        if (index < activeTab) activeTab--;
+        else if (index == activeTab) activeTab = Math.min(activeTab, tabViews.size() - 1);
+        switchTab(activeTab);
+    }
+
     private void addButton(LinearLayout row,String label,Runnable run,int width){
         Button b=new Button(this);b.setText(label);b.setAllCaps(false);b.setTextSize(10);
         b.setMinHeight(dp(36));b.setMinimumHeight(dp(36));b.setPadding(dp(3),0,dp(3),0);
@@ -185,15 +281,17 @@ public class BrowserActivity extends Activity {
         }).show();
     }
     private void applyDesktop(){
-        WebSettings s=web.getSettings();
-        String ua=s.getUserAgentString();
-        if(desktop){
-            ua=ua.replace("Mobile","").replace("Android","X11; Linux x86_64");
-            s.setUseWideViewPort(true);s.setLoadWithOverviewMode(true);
-        }else{
-            ua=WebSettings.getDefaultUserAgent(this);s.setUseWideViewPort(false);s.setLoadWithOverviewMode(false);
+        for (WebView view : tabViews) {
+            WebSettings s=view.getSettings();
+            String ua=WebSettings.getDefaultUserAgent(this);
+            if(desktop){
+                ua=ua.replace("Mobile","").replace("Android","X11; Linux x86_64");
+                s.setUseWideViewPort(true);s.setLoadWithOverviewMode(true);
+            }else{
+                s.setUseWideViewPort(false);s.setLoadWithOverviewMode(false);
+            }
+            s.setUserAgentString(ua);view.reload();
         }
-        s.setUserAgentString(ua);web.reload();
     }
     private void applyImmersive(){
         if(immersive)getWindow().getDecorView().setSystemUiVisibility( View.SYSTEM_UI_FLAG_FULLSCREEN|View.SYSTEM_UI_FLAG_HIDE_NAVIGATION|View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY);
@@ -420,7 +518,22 @@ public class BrowserActivity extends Activity {
             startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(fastUri,type).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION));
         }catch(Exception e){toast("لا يوجد تطبيق مناسب لفتح الملف");}
     }
-    @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);if(web!=null)b.putString("url",web.getUrl());}
-    @Override public void onBackPressed(){if(immersive){immersive=false;applyImmersive();}else if(web!=null&&web.canGoBack())web.goBack();else super.onBackPressed();}
-    @Override protected void onDestroy(){if(web!=null){web.stopLoading();web.destroy();}super.onDestroy();}
+    @Override protected void onSaveInstanceState(Bundle b){
+        super.onSaveInstanceState(b);
+        String[] urls = new String[tabViews.size()];
+        for (int i = 0; i < tabViews.size(); i++) urls[i] = tabViews.get(i).getUrl();
+        b.putStringArray("tabs", urls); b.putInt("active_tab", activeTab);
+    }
+    @Override public void onBackPressed(){
+        if(immersive){immersive=false;applyImmersive();}
+        else if(web!=null&&web.canGoBack())web.goBack();
+        else if(tabViews.size()>1)closeTab(activeTab);
+        else super.onBackPressed();
+    }
+    @Override protected void onDestroy(){
+        if(downloadRefresh!=null)ui.removeCallbacks(downloadRefresh);
+        for(WebView view:new ArrayList<>(tabViews)){view.stopLoading();view.destroy();}
+        tabViews.clear();tabTitles.clear();
+        super.onDestroy();
+    }
 }
