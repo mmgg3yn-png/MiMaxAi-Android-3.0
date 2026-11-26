@@ -60,14 +60,16 @@ jobs:
           mkdir -p app/src/main/assets/engines/erofs/armeabi-v7a app/src/main/assets/engines/erofs/arm64-v8a
           cp "$A32" app/src/main/assets/engines/erofs/armeabi-v7a/extract.erofs
           cp "$A64" app/src/main/assets/engines/erofs/arm64-v8a/extract.erofs
-          find /tmp/erofs-arm32 -type f -name '*.so*' -exec cp -L app/src/main/assets/engines/erofs/armeabi-v7a/ {} +
-          find /tmp/erofs-arm64 -type f -name '*.so*' -exec cp -L app/src/main/assets/engines/erofs/arm64-v8a/ {} +
+          find /tmp/erofs-arm32 -type f -name '*.so*' -exec cp -L {} app/src/main/assets/engines/erofs/armeabi-v7a/ \;
+          find /tmp/erofs-arm64 -type f -name '*.so*' -exec cp -L {} app/src/main/assets/engines/erofs/arm64-v8a/ \;
           chmod 0644 app/src/main/assets/engines/erofs/*/*
           file app/src/main/assets/engines/erofs/*/*
           readelf -h app/src/main/assets/engines/erofs/armeabi-v7a/extract.erofs | grep -E 'Class:|Machine:'
           readelf -h app/src/main/assets/engines/erofs/arm64-v8a/extract.erofs | grep -E 'Class:|Machine:'
           readelf -h app/src/main/assets/engines/erofs/armeabi-v7a/extract.erofs | grep -q 'ARM'
           readelf -h app/src/main/assets/engines/erofs/arm64-v8a/extract.erofs | grep -q 'AArch64'
+
+          # Build a real EROFS image, extract it, and compare the extracted file byte-for-byte.
           curl -fL --retry 3 'https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Linux_x86_64.zip' -o /tmp/erofs-linux.zip
           echo '6d6c6b0e7ad7273cc019644e5d6ad1e263142fad72874e169cc0731854f95bf1  /tmp/erofs-linux.zip' | sha256sum -c -
           mkdir -p /tmp/erofs-linux /tmp/erofs-fixture/src/sub /tmp/erofs-fixture/out
@@ -75,10 +77,14 @@ jobs:
           MKFS="$(find /tmp/erofs-linux -type f -name mkfs.erofs -print -quit)"
           EXTRACT="$(find /tmp/erofs-linux -type f -name extract.erofs -print -quit)"
           test -n "$MKFS" && test -n "$EXTRACT"
-          printf 'Mi_Max Ai EROFS integration test\\n' > /tmp/erofs-fixture/src/sub/test.txt
+          printf 'Mi_Max Ai EROFS integration test\n' > /tmp/erofs-fixture/src/sub/test.txt
           "$MKFS" -zlz4 /tmp/erofs-fixture/test.erofs /tmp/erofs-fixture/src
-          "$EXTRACT" --image=/tmp/erofs-fixture/test.erofs -x -f -s -T2 --outdir=/tmp/erofs-fixture/out
-          cmp /tmp/erofs-fixture/src/sub/test.txt /tmp/erofs-fixture/out/sub/test.txt
+          # extract.erofs places the image root under <outdir>/<image-basename>.
+          "$EXTRACT" -i /tmp/erofs-fixture/test.erofs -x -f -T2 -o /tmp/erofs-fixture/out
+          EROFS_ROOT=/tmp/erofs-fixture/out/test
+          test -d "$EROFS_ROOT"
+          test -s "$EROFS_ROOT/sub/test.txt"
+          cmp /tmp/erofs-fixture/src/sub/test.txt "$EROFS_ROOT/sub/test.txt"
 
       - name: Build Debug APK
         run: gradle --no-daemon :app:assembleDebug
