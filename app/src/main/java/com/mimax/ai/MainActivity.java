@@ -1620,7 +1620,8 @@ public class MainActivity extends Activity {
         p.addView(row("IDE", "Developer Studio", "محررات HTML وPython وتحويل المشاريع إلى APK", v -> startActivity(new Intent(MainActivity.this, DeveloperStudioActivity.class))));
         p.addView(row("THEME", "Theme Studio", "استيراد وإنشاء ثيمات مستقلة بصيغة .mt_1", v -> startActivity(new Intent(MainActivity.this, ThemeStudioActivity.class))));
         p.addView(row("PC", "اتصال الكمبيوتر", "ADB وFastboot عبر الكمبيوتر على نفس الشبكة", v -> startActivity(new Intent(MainActivity.this, RemotePcActivity.class))));
-        p.addView(row("BACKUP", "النسخ الاحتياطي", "تصدير واستعادة المحادثات والذاكرة والإعدادات", v -> startActivity(new Intent(MainActivity.this, BackupActivity.class))));
+        p.addView(row("BACKUP", "النسخ الاحتياطي", "نسخة كاملة مشفّرة لبيانات التطبيق وملفاته", v -> startActivity(new Intent(MainActivity.this, BackupActivity.class))));
+        p.addView(row("RESTART", "إعادة تشغيل التطبيق", "إغلاق وإعادة فتح Mi_Max Ai مع الاحتفاظ بالبيانات", v -> confirm("سيتم إغلاق التطبيق وإعادة تشغيله. هل تريد المتابعة؟", () -> { try { AppRestart.restart(MainActivity.this); } catch (Exception e) { toast("تعذرت إعادة التشغيل: " + e.getMessage()); } })));
         p.addView(row("UI", "المظهر", (style == 1 ? "زجاج سائل" : style == 2 ? "Material 3" : "عادي") + " — " + th.nameAr, v -> openSub("look")));
         p.addView(row("DEV", "المطور والشكاوى", "محمد السعيد علي", v -> openSub("dev")));
         if (Store.flag("devOpts", false)) p.addView(row("DEV+", "خيارات المطور", "ألوان مخصصة لكل عنصر", v -> openSub("devopts")));
@@ -1995,6 +1996,7 @@ public class MainActivity extends Activity {
     }
 
     void pDevOpts(final LinearLayout p) {
+        p.addView(btn("إيقاف خيارات المطور", SF2, TX, v -> confirm("سيتم إخفاء أدوات المطور وتعطيلها. لن تُحذف ألوانك أو إعداداتك المحفوظة، ويمكنك تفعيلها مجدداً بالنقر 7 مرات على رقم الإصدار.", () -> { pend.clear(); Store.setFlag("devOpts", false); sub = null; showSettings(); toast("تم إيقاف خيارات المطور"); })));
         p.addView(note("خيارات متقدمة للمطور. اضغط على أي لون لتغييره ثم «تطبيق وإعادة تحميل». الضغط المطوّل على لون عنصر يعيده للافتراضي."));
         p.addView(toggleCb("تفعيل الألوان المخصصة", Store.flag("ccOn", false), (cb, c) -> { Store.setFlag("ccOn", c); applyDev(); }));
         p.addView(note("ألوان الثيم"));
