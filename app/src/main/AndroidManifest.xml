@@ -35,6 +35,7 @@
         <activity android:name=".DeveloperStudioActivity" android:exported="false" />
         <activity android:name=".ExtensionActivity" android:exported="false" />
         <activity android:name=".BackupActivity" android:exported="false" />
+        <activity android:name=".RemovableStorageActivity" android:exported="false" />
         <activity android:name=".RemotePcActivity" android:exported="false" />
         <activity android:name=".AgentActivity" android:exported="false" />
         <activity android:name=".LogoBinActivity" android:exported="false" />
