@@ -136,7 +136,7 @@ public final class FullBackupEngine {
                     }
                 }
                 zip.closeEntry();
-                checksums.put(rootId + "/" + rel, hex(digest.digest()));
+                checksums.put(entry.substring(("payload/" + rootId + "/").length()), hex(digest.digest()));
             }
         }
     }
@@ -176,7 +176,7 @@ public final class FullBackupEngine {
                         File root = new File(stage, rootId);
                         File out = relative.isEmpty() ? root : new File(root, relative);
                         String canonical = out.getCanonicalPath();
-                        if (!canonical.startsWith(root.getCanonicalPath())) throw new Exception("مسار ملف غير آمن");
+                        String rootCanonical = root.getCanonicalPath();\n                        if (!canonical.equals(rootCanonical) && !canonical.startsWith(rootCanonical + File.separator)) throw new Exception("مسار ملف غير آمن");
                         if (entry.isDirectory() || name.endsWith("/")) out.mkdirs();
                         else {
                             File parent = out.getParentFile(); if (parent != null) parent.mkdirs();
