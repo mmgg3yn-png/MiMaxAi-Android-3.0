@@ -64,6 +64,21 @@ jobs:
           find /tmp/erofs-arm64 -type f -name '*.so*' -exec cp -L {} app/src/main/assets/engines/erofs/arm64-v8a/ \\;
           chmod 0644 app/src/main/assets/engines/erofs/*/*
           file app/src/main/assets/engines/erofs/*/*
+          readelf -h app/src/main/assets/engines/erofs/armeabi-v7a/extract.erofs | grep -E 'Class:|Machine:'
+          readelf -h app/src/main/assets/engines/erofs/arm64-v8a/extract.erofs | grep -E 'Class:|Machine:'
+          readelf -h app/src/main/assets/engines/erofs/armeabi-v7a/extract.erofs | grep -q 'ARM'
+          readelf -h app/src/main/assets/engines/erofs/arm64-v8a/extract.erofs | grep -q 'AArch64'
+          curl -fL --retry 3 'https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Linux_x86_64.zip' -o /tmp/erofs-linux.zip
+          echo '6d6c6b0e7ad7273cc019644e5d6ad1e263142fad72874e169cc0731854f95bf1  /tmp/erofs-linux.zip' | sha256sum -c -
+          mkdir -p /tmp/erofs-linux /tmp/erofs-fixture/src/sub /tmp/erofs-fixture/out
+          unzip -q /tmp/erofs-linux.zip -d /tmp/erofs-linux
+          MKFS="$(find /tmp/erofs-linux -type f -name mkfs.erofs -print -quit)"
+          EXTRACT="$(find /tmp/erofs-linux -type f -name extract.erofs -print -quit)"
+          test -n "$MKFS" && test -n "$EXTRACT"
+          printf 'Mi_Max Ai EROFS integration test\\n' > /tmp/erofs-fixture/src/sub/test.txt
+          "$MKFS" -zlz4 /tmp/erofs-fixture/test.erofs /tmp/erofs-fixture/src
+          "$EXTRACT" -i=/tmp/erofs-fixture/test.erofs -x -f -s -T2 -o=/tmp/erofs-fixture/out
+          cmp /tmp/erofs-fixture/src/sub/test.txt /tmp/erofs-fixture/out/sub/test.txt
 
       - name: Build Debug APK
         run: gradle --no-daemon :app:assembleDebug
