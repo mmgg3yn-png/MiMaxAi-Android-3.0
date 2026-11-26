@@ -154,13 +154,16 @@ public final class ExtensionToolActivity extends Activity {
         }
         if(n<0)n=0;
         String type="غير معروف";
-        if(n>=4 && b[0]==0x3A && (b[1]&255)==0xFF && (b[2]&255)==0x26 && (b[3]&255)==0xED)type="Android Sparse Image";
-        else if(n>=4 && b[0]==0x3A && b[1]==0xFF && b[2]==0x26 && b[3]==0xED)type="Android Sparse Image";
-        else if(n>=4 && b[0]==0x10 && b[1]==0x20 && b[2]==0xF5 && b[3]==0xF2)type="EROFS (magic)";
-        else if(n>=4 && b[0]==0x53 && b[1]==0xEF)type="EXT filesystem (possible)";
-        else if(n>=4 && b[0]==0x28 && b[1]==(byte)0xB5 && b[2]==0x2F && b[3]==(byte)0xFD)type="Zstandard";
-        else if(n>=4 && b[0]==0x04 && b[1]==0x22 && b[2]==0x4D && b[3]==0x18)type="LZ4 frame";
-        else if(n>=4 && b[0]==0x50 && b[1]==0x4B)type="ZIP";
-        return "نتيجة التعرف من الترويسة\nالنوع المحتمل: "+type+"\nملاحظة: هذا فحص توقيع أولي وليس تحققاً كاملاً من سلامة الصورة.";
+        if(n>=4 && (b[0]&255)==0x3A && (b[1]&255)==0xFF && (b[2]&255)==0x26 && (b[3]&255)==0xED)
+            type="Android Sparse Image";
+        else if(n>=4 && (b[0]&255)==0xE2 && (b[1]&255)==0xE1 && (b[2]&255)==0xF5 && (b[3]&255)==0xE0)
+            type="EROFS (magic)";
+        else if(n>=4 && (b[0]&255)==0x28 && (b[1]&255)==0xB5 && (b[2]&255)==0x2F && (b[3]&255)==0xFD)
+            type="Zstandard";
+        else if(n>=4 && (b[0]&255)==0x04 && (b[1]&255)==0x22 && (b[2]&255)==0x4D && (b[3]&255)==0x18)
+            type="LZ4 frame";
+        else if(n>=4 && (b[0]&255)==0x50 && (b[1]&255)==0x4B)
+            type="ZIP";
+        return "نتيجة التعرف من الترويسة\\nالنوع المحتمل: "+type+"\\nملاحظة: هذا فحص توقيع أولي وليس تحققاً كاملاً من سلامة الصورة.";
     }
 }
