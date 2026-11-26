@@ -101,7 +101,8 @@ public final class ExtensionEngine {
             if(m.optInt("apiVersion",0)>API_VERSION) throw new Exception("الإضافة تحتاج إصدار API أحدث");
             if(m.optInt("apiVersion",0)<1) throw new Exception("apiVersion مفقود أو غير صالح");
             String type=m.optString("type","theme");
-            if(!"theme".equals(type) && !"ui".equals(type)) throw new Exception("نوع الإضافة غير مدعوم");
+            if(!"theme".equals(type) && !"ui".equals(type) && !"tool".equals(type))
+                throw new Exception("نوع الإضافة غير مدعوم في API v1");
             if("ui".equals(type)) {
                 File screen=new File(stage,"app/screen.json");
                 if(!screen.isFile() || screen.length()>256*1024) throw new Exception("إضافة الواجهة تحتاج app/screen.json صالحاً");
@@ -109,6 +110,7 @@ public final class ExtensionEngine {
                 org.json.JSONArray components=spec.optJSONArray("components");
                 if(components==null || components.length()>40) throw new Exception("مكونات شاشة الإضافة غير صالحة");
             }
+            if("tool".equals(type)) validateToolPackage(stage);
             File target=new File(root,id);
             if(target.exists()) throw new Exception("هذه الإضافة مثبتة بالفعل. احذف النسخة الحالية أو استخدم معرّفاً مختلفاً.");
             if(!stage.renameTo(target)) throw new Exception("تعذر اعتماد ملفات الإضافة");
@@ -116,6 +118,29 @@ public final class ExtensionEngine {
             return find(id);
         } catch(Exception ex) {
             deleteTree(stage); throw ex;
+        }
+    }
+
+    private void validateToolPackage(File stage) throws Exception {
+        File specFile=new File(stage,"app/tool.json");
+        if(!specFile.isFile() || specFile.length()>128*1024)
+            throw new Exception("إضافة الأداة تحتاج app/tool.json صالحاً");
+        JSONObject spec=readJson(specFile);
+        org.json.JSONArray actions=spec.optJSONArray("actions");
+        if(actions==null || actions.length()<1 || actions.length()>20)
+            throw new Exception("قائمة عمليات الأداة غير صالحة");
+        java.util.HashSet<String> ids=new java.util.HashSet<>();
+        String[] allowed={"file_info","sha256","hex_preview","text_preview","detect_image"};
+        for(int i=0;i<actions.length();i++){
+            JSONObject action=actions.getJSONObject(i);
+            String id=action.optString("id","").trim();
+            String kind=action.optString("kind","");
+            if(!id.matches("[a-zA-Z0-9._-]{2,48}") || !ids.add(id))
+                throw new Exception("معرّف عملية مكرر أو غير صالح");
+            if(!java.util.Arrays.asList(allowed).contains(kind))
+                throw new Exception("عملية غير مسموحة: "+kind);
+            if(action.optString("title","").length()>80)
+                throw new Exception("عنوان العملية طويل جداً");
         }
     }
 
