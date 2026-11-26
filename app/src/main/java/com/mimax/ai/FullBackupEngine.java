@@ -84,6 +84,7 @@ public final class FullBackupEngine {
             manifest.put("sdk", Build.VERSION.SDK_INT);
             JSONArray rootList = new JSONArray();
             JSONObject checksums = new JSONObject();
+            JSONObject metadata = new JSONObject();
             int[] fileCount = {0};
             long[] byteCount = {0L};
             for (Root root : roots.values()) {
@@ -94,11 +95,12 @@ public final class FullBackupEngine {
                 if (root.dir != null && root.dir.isDirectory()) {
                     zip.putNextEntry(new ZipEntry("payload/" + root.id + "/"));
                     zip.closeEntry();
-                    addTree(zip, root.dir, "payload/" + root.id, root.id, checksums, fileCount, byteCount);
+                    addTree(zip, root.dir, "payload/" + root.id, root.id, checksums, metadata, fileCount, byteCount);
                 }
             }
             manifest.put("roots", rootList);
             manifest.put("files", checksums);
+            manifest.put("metadata", metadata);
             manifest.put("fileCount", fileCount[0]);
             manifest.put("totalBytes", byteCount[0]);
             byte[] m = manifest.toString().getBytes("UTF-8");
@@ -114,7 +116,7 @@ public final class FullBackupEngine {
     }
 
     private static void addTree(ZipOutputStream zip, File dir, String zipBase, String rootId,
-                                JSONObject checksums, int[] count, long[] bytes) throws Exception {
+                                JSONObject checksums, JSONObject metadata, int[] count, long[] bytes) throws Exception {
         File[] children = dir.listFiles();
         if (children == null) return;
         for (File child : children) {
@@ -127,7 +129,8 @@ public final class FullBackupEngine {
                 ZipEntry directoryEntry = new ZipEntry(entry + "/");
                 directoryEntry.setTime(child.lastModified());
                 zip.putNextEntry(directoryEntry); zip.closeEntry();
-                addTree(zip, child, entry, rootId, checksums, count, bytes);
+                metadata.put(rootId + "/" + entry.substring(("payload/" + rootId + "/").length()), fileMetadata(child));
+                addTree(zip, child, entry, rootId, checksums, metadata, count, bytes);
             } else if (child.isFile()) {
                 if (++count[0] > MAX_ENTRIES) throw new Exception("عدد الملفات أكبر من الحد الآمن");
                 MessageDigest digest = MessageDigest.getInstance("SHA-256");
@@ -141,7 +144,9 @@ public final class FullBackupEngine {
                     }
                 }
                 zip.closeEntry();
-                checksums.put(entry.substring(("payload/" + rootId + "/").length()), hex(digest.digest()));
+                String relative = entry.substring(("payload/" + rootId + "/").length());
+                checksums.put(relative, hex(digest.digest()));
+                metadata.put(rootId + "/" + relative, fileMetadata(child));
             }
         }
     }
@@ -229,6 +234,29 @@ public final class FullBackupEngine {
                 if (!file.isFile() || !hex(sha256(file)).equalsIgnoreCase(checksums.getString(key)))
                     throw new Exception("فشل التحقق من سلامة الملف: " + key);
             }
+            JSONObject metadata = manifest.optJSONObject("metadata");
+            if (metadata != null) {
+                Iterator<String> metaKeys = metadata.keys();
+                while (metaKeys.hasNext()) {
+                    String key = metaKeys.next();
+                    int slash = key.indexOf('/');
+                    if (slash < 1) throw new Exception("بيانات صلاحيات الملف غير صالحة");
+                    String rootId = key.substring(0, slash);
+                    if (!rootId.matches("[A-Za-z0-9_-]{1,64}")) throw new Exception("معرّف جذر غير صالح");
+                    File root = new File(stage, rootId);
+                    File item = new File(root, key.substring(slash + 1));
+                    String rootPath = root.getCanonicalPath(), itemPath = item.getCanonicalPath();
+                    if (!itemPath.startsWith(rootPath + File.separator)) throw new Exception("مسار بيانات الملف غير آمن");
+                    if (item.exists()) {
+                        JSONObject m = metadata.getJSONObject(key);
+                        item.setReadable(m.optBoolean("readable", true), true);
+                        item.setWritable(m.optBoolean("writable", true), true);
+                        item.setExecutable(m.optBoolean("executable", false), true);
+                        long modified = m.optLong("modified", item.lastModified());
+                        if (modified > 0) item.setLastModified(modified);
+                    }
+                }
+            }
             report.bytes = total[0];
             LinkedHashMap<String, Root> destinations = roots(context);
             JSONArray savedRoots = manifest.optJSONArray("roots");
@@ -285,6 +313,16 @@ public final class FullBackupEngine {
         return out;
     }
 
+
+    private static JSONObject fileMetadata(File file) throws Exception {
+        JSONObject m = new JSONObject();
+        m.put("modified", file.lastModified());
+        m.put("readable", file.canRead());
+        m.put("writable", file.canWrite());
+        m.put("executable", file.canExecute());
+        return m;
+    }
+
     private static void replaceDirectory(File source, File target) throws Exception {
         File parent = target.getParentFile();
         if (parent == null || (!parent.exists() && !parent.mkdirs())) throw new Exception("تعذر تجهيز مجلد الاستعادة");
@@ -313,6 +351,10 @@ public final class FullBackupEngine {
                 byte[] b = new byte[32768]; int n; while ((n=in.read(b))!=-1) out.write(b,0,n);
             }
         }
+        to.setReadable(from.canRead(), true);
+        to.setWritable(from.canWrite(), true);
+        to.setExecutable(from.canExecute(), true);
+        if (from.lastModified() > 0) to.setLastModified(from.lastModified());
     }
 
     private static byte[] sha256(File f) throws Exception {
