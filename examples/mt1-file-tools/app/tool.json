@@ -1,0 +1,10 @@
+{
+  "title": "أدوات الملفات",
+  "actions": [
+    {"id":"file_info","title":"معلومات الملف","kind":"file_info"},
+    {"id":"sha256","title":"حساب SHA-256","kind":"sha256"},
+    {"id":"hex_preview","title":"معاينة Hex","kind":"hex_preview"},
+    {"id":"text_preview","title":"معاينة نصية","kind":"text_preview"},
+    {"id":"detect_image","title":"التعرف على ترويسة الصورة","kind":"detect_image"}
+  ]
+}
