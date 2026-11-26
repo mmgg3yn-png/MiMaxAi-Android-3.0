@@ -43,6 +43,25 @@ jobs:
           cp local-runner/app/build/outputs/apk/html/debug/app-html-debug.apk app/src/main/assets/local_runner_html.apk
           cp local-runner/app/build/outputs/apk/python/debug/app-python-debug.apk app/src/main/assets/local_runner_python.apk
 
+      - name: Bundle EROFS extraction engines (ARM32 + ARM64)
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/erofs-arm32 /tmp/erofs-arm64
+          curl -fL --retry 3 'https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Android_armeabi-v7a.zip' -o /tmp/erofs-arm32.zip
+          curl -fL --retry 3 'https://github.com/sekaiacg/erofs-tools/releases/download/v1.8.10-251217/erofs-utils-v1.8.10-gee46dd74-251217-Android_arm64-v8a.zip' -o /tmp/erofs-arm64.zip
+          echo 'a5b7606bc82baf?  /tmp/erofs-arm32.zip' > /tmp/arm32.sha
+          echo '986a3880b7afc0b5efcc58f75268f2c9d03d86773ae8b7ab2c8692215740e21e  /tmp/erofs-arm64.zip' > /tmp/arm64.sha
+          unzip -q /tmp/erofs-arm32.zip -d /tmp/erofs-arm32
+          unzip -q /tmp/erofs-arm64.zip -d /tmp/erofs-arm64
+          A32="$(find /tmp/erofs-arm32 -type f -name extract.erofs -print -quit)"
+          A64="$(find /tmp/erofs-arm64 -type f -name extract.erofs -print -quit)"
+          test -n "$A32" && test -n "$A64"
+          mkdir -p app/src/main/assets/engines/erofs/armeabi-v7a app/src/main/assets/engines/erofs/arm64-v8a
+          cp "$A32" app/src/main/assets/engines/erofs/armeabi-v7a/extract.erofs
+          cp "$A64" app/src/main/assets/engines/erofs/arm64-v8a/extract.erofs
+          chmod 0644 app/src/main/assets/engines/erofs/*/extract.erofs
+          file app/src/main/assets/engines/erofs/*/extract.erofs
+
       - name: Build Debug APK
         run: gradle --no-daemon :app:assembleDebug
 
