@@ -98,6 +98,7 @@ public class Store {
     public static void setStyle(int i) { put("style", String.valueOf(i)); }
     public static String model() { return get("model", "").trim(); }
     public static String audioModel() { return get("audioModel", "").trim(); }
+    public static String mediaModel() { return get("mediaModel", audioModel()).trim(); }
     public static double temp() {
         try { return Double.parseDouble(get("temp", "0.7")); } catch (Exception e) { return 0.7; }
     }
