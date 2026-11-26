@@ -25,6 +25,7 @@ import android.widget.TextView;
 
 import com.mimax.ai.engine.Archives;
 import com.mimax.ai.engine.BootImg;
+import com.mimax.ai.engine.LogoBin;
 import com.mimax.ai.engine.Io;
 
 import java.io.File;
@@ -206,6 +207,12 @@ class FileScreen {
 
     // ---------------- فتح الملفات ----------------
     void open(final File f) {
+        if (LogoBin.looksLike(f)) {
+            Intent logo = new Intent(a, LogoBinActivity.class);
+            logo.putExtra("file_path", f.getAbsolutePath());
+            a.startActivity(logo);
+            return;
+        }
         if (f.isDirectory()) { a.openScreen(f.getName(), () -> renderDir(f)); return; }
         String n = f.getName().toLowerCase();
         if (ApkInstaller.isInstallable(n)) {
