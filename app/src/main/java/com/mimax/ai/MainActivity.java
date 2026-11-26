@@ -1169,7 +1169,7 @@ public class MainActivity extends Activity {
         }
         final String img = regen ? null : attImg;
         final String aud = regen ? null : attAud;
-        final String model = aud != null ? (Store.audioModel().isEmpty() ? Store.model() : Store.audioModel()) : Store.model();
+        final String model = (img != null || aud != null) ? (Store.mediaModel().isEmpty() ? Store.model() : Store.mediaModel()) : Store.model();
 
         JSONArray msgs = new JSONArray();
         msgs.put(jm("system", buildSystem(um.t)));
@@ -1681,8 +1681,8 @@ public class MainActivity extends Activity {
         }));
         p.addView(res);
         p.addView(row("MDL", "النموذج الحالي", Store.model().isEmpty() ? "اختيار تلقائي من النماذج المجانية" : Store.model(), v -> openSub("models")));
-        fAudio = field(p, "نموذج الرسائل الصوتية (فارغ = نفس نموذج المحادثة)", Store.audioModel(), false, true);
-        fAudio.addTextChangedListener(watcher(s -> Store.put("audioModel", s.trim())));
+        fAudio = field(p, "نموذج الصور والصوت (فارغ = نفس نموذج النص)", Store.mediaModel(), false, true);
+        fAudio.addTextChangedListener(watcher(s -> Store.put("mediaModel", s.trim())));
         final TextView tl = tv("الإبداع (الحرارة): " + Store.temp(), MUT, 13);
         tl.setPadding(0, dp(12), 0, dp(4));
         p.addView(tl);
