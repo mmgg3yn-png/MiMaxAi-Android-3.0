@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: mimaxai-android-${{ github.ref }}
+  group: mimaxai-android-v2-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
