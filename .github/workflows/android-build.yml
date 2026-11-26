@@ -49,6 +49,6 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: MiMaxAi-3.0-Debug-APK
+          name: MiMaxAi-3.2-Debug-APK
           path: app/build/outputs/apk/debug/*.apk
           if-no-files-found: error
