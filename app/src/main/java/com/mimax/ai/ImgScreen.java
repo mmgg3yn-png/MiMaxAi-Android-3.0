@@ -133,6 +133,7 @@ class ImgScreen {
             r.setOnLongClickListener(v -> { partMenu(pt); return true; });
             p.addView(r);
         }
+        p.addView(a.btn("استخراج كل أقسام super دفعة واحدة", a.AC, a.ON, v -> extractAllSuper()));
         p.addView(a.btn("تحديد كل الأقسام غير الفارغة", a.SF2, a.TX, v -> {
             for (Lp.Part pt : meta.parts) if (pt.size > 0) sel.add(pt.name);
             render();
@@ -155,6 +156,30 @@ class ImgScreen {
     }
 
     FileScreen files() { return a.files; }
+
+    void extractAllSuper() {
+        final File dir = partsDir();
+        final List<Lp.Part> todo = new ArrayList<>();
+        long need = 0;
+        for (Lp.Part pt : meta.parts) if (pt.size > 0) { todo.add(pt); need += pt.size; }
+        final long required = need;
+        a.confirm("سيتم استخراج جميع الأقسام غير الفارغة (" + todo.size() + ") إلى:\\n" + dir.getPath()
+                + "\\nالحجم الإجمالي التقريبي: " + Io.human(required)
+                + "\\nالمساحة المتاحة: " + Io.human(img.getAbsoluteFile().getParentFile().getUsableSpace()),
+                () -> a.runBgP("استخراج جميع أقسام super", new Io.Cancel(), progress -> {
+                    Io.checkSpace(dir.exists() ? dir : dir.getParentFile(), required);
+                    withSrc(img, info.sparse, source -> {
+                        long done = 0;
+                        for (Lp.Part part : todo) {
+                            final long base = done;
+                            Lp.extract(source, part, new File(dir, part.name + ".img"),
+                                    (d0, t0) -> progress.on(base + d0, required), null);
+                            done += part.size;
+                        }
+                    });
+                }, () -> a.showError("اكتمل استخراج " + todo.size() + " قسم إلى:\\n" + dir.getPath()
+                        + "\\nافتح قسم system أو vendor أو product من مدير الملفات لفك محتواه أيضاً.")));
+    }
 
     void extractSelected() {
         if (sel.isEmpty()) { a.toast("حدّد قسماً واحداً على الأقل"); return; }
