@@ -6,6 +6,8 @@ android {
     namespace 'com.mimax.ai'
     compileSdk 34
 
+    buildFeatures { buildConfig true }
+
     defaultConfig {
         applicationId "com.mimax.ai"
         minSdk 26
@@ -30,4 +32,5 @@ android {
 dependencies {
     // Pure-Java APK signer used by the on-device HTML/Python project exporter.
     implementation 'com.android.tools.build:apksig:8.3.0'
+    implementation 'org.mozilla:rhino:1.7.15'
 }
