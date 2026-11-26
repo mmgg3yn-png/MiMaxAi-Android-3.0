@@ -55,7 +55,7 @@ public class ExtensionActivity extends Activity {
         root.setPadding(dp(14),dp(8),dp(14),dp(10)); root.setBackgroundColor(0xFFF2F4F7);
         TextView title=text("Mi_Max Extension Control",21,0xFF17212D);
         title.setTypeface(null,1); root.addView(title);
-        root.addView(text("إدارة حزم .mt1 وإنشاء إضافات بالذكاء الاصطناعي. الإصدار الأول يطبق إضافات الثيمات المعلنة فقط؛ دعم تعديل الشاشات والوظائف سيضاف عبر واجهات API موثقة.",13,0xFF536273));
+        root.addView(text("إدارة حزم .mt1: ثيمات، شاشات، وأدوات فعلية تعمل عبر واجهات آمنة مدمجة. لا تشغّل الحزم كوداً عشوائياً داخل التطبيق.",13,0xFF536273));
         root.addView(button("تثبيت إضافة .mt1",this::pickPackage));
         root.addView(button("إنشاء إضافة بالذكاء الاصطناعي",this::createWithAi));
         root.addView(button("إنشاء شاشة أو أداة بالذكاء الاصطناعي",this::createUiWithAi));
@@ -107,9 +107,17 @@ public class ExtensionActivity extends Activity {
             TextView name=text(item.name+"  •  "+item.version,16,0xFF17212D); name.setTypeface(null,1); card.addView(name);
             card.addView(text("ID: "+item.id+" | API: "+item.manifest.optInt("apiVersion"),12,0xFF64748B));
             card.addView(text(item.manifest.optString("description","إضافة Mi_Max"),12,0xFF475569));
-            if("ui".equals(item.manifest.optString("type",""))) {
+            String itemType=item.manifest.optString("type","");
+            if("ui".equals(itemType)) {
                 card.addView(button("فتح شاشة الإضافة",()->{
                     Intent open=new Intent(this,ExtensionScreenActivity.class);
+                    open.putExtra("extension_id",item.id);
+                    startActivity(open);
+                }));
+            } else if("tool".equals(itemType)) {
+                card.addView(button("فتح الأداة",()->{
+                    if(!item.enabled){toast("فعّل الإضافة أولاً");return;}
+                    Intent open=new Intent(this,ExtensionToolActivity.class);
                     open.putExtra("extension_id",item.id);
                     startActivity(open);
                 }));
