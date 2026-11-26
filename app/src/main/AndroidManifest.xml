@@ -34,6 +34,7 @@
         <activity android:name=".BackupActivity" android:exported="false" />
         <activity android:name=".RemotePcActivity" android:exported="false" />
         <activity android:name=".AgentActivity" android:exported="false" />
+        <activity android:name=".LogoBinActivity" android:exported="false" />
         <activity android:name=".BrowserActivity" android:exported="false" />
         <activity android:name=".TerminalActivity" android:exported="false" />
         <receiver android:name=".TermuxResultReceiver" android:exported="false" />
