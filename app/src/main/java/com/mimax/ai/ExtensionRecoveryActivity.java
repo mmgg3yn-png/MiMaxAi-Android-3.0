@@ -1,0 +1,108 @@
+package com.mimax.ai;
+
+import android.app.Activity;
+import android.content.Intent;
+import android.os.Bundle;
+import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.TextView;
+import java.io.File;
+
+public class ExtensionRecoveryActivity extends Activity {
+    private int dp(int n) { return Math.round(n * getResources().getDisplayMetrics().density); }
+    @Override public void onCreate(Bundle state) {
+        super.onCreate(state);
+        Theme t = Theme.get(Store.theme());
+        LinearLayout page = new LinearLayout(this);
+        page.setOrientation(LinearLayout.VERTICAL);
+        page.setPadding(dp(18), dp(18), dp(18), dp(18));
+        page.setBackgroundColor(t.base);
+        TextView title = new TextView(this);
+        title.setText("Mi_Max Extension Recovery");
+        title.setTextSize(22); title.setTextColor(t.tx);
+        page.addView(title);
+        String id = ExtensionState.recoveryId(this);
+        TextView detail = new TextView(this);
+        detail.setText(id.isEmpty() ? "وضع الصيانة: يمكنك تعطيل الإضافات أو استعادة نسخة سابقة." :
+                "تم تعطيل الإضافة تلقائياً بعد تعطل التطبيق:\n" + id + "\nيمكنك مراجعة سجلها أو حذفها.");
+        detail.setTextColor(t.mut); detail.setPadding(0, dp(12), 0, dp(12));
+        page.addView(detail);
+        Button disableAll = new Button(this);
+        disableAll.setText("تعطيل جميع الإضافات");
+        page.addView(disableAll);
+        disableAll.setOnClickListener(v -> {
+            File root = ExtensionRuntime.root(this);
+            File[] dirs = root.listFiles();
+            if (dirs != null) for (File d : dirs) if (d.isDirectory()) ExtensionState.setEnabled(this, d.getName(), false);
+            ExtensionState.clearRecovery(this);
+            detail.setText("تم تعطيل جميع الإضافات. يمكنك العودة إلى التطبيق.");
+        });
+        Button enableAll = new Button(this);
+        enableAll.setText("إعادة تفعيل جميع الإضافات");
+        page.addView(enableAll);
+        enableAll.setOnClickListener(v -> {
+            File root = ExtensionRuntime.root(this);
+            File[] dirs = root.listFiles();
+            if (dirs != null) for (File d : dirs) if (d.isDirectory()) ExtensionState.setEnabled(this, d.getName(), true);
+            ExtensionState.clearRecovery(this);
+            detail.setText("تمت إعادة تفعيل الإضافات.");
+        });
+        Button restore = new Button(this);
+        restore.setText("استعادة آخر نسخة سابقة للإضافة");
+        page.addView(restore);
+        restore.setOnClickListener(v -> {
+            if (id.isEmpty()) { detail.setText("لا توجد إضافة محددة لاستعادتها."); return; }
+            File backups = new File(getFilesDir(), "extension_backups/" + id);
+            File[] versions = backups.listFiles();
+            File latest = null;
+            if (versions != null) for (File candidate : versions)
+                if (candidate.isDirectory() && (latest == null || candidate.lastModified() > latest.lastModified())) latest = candidate;
+            if (latest == null) { detail.setText("لا توجد نسخة احتياطية لهذه الإضافة."); return; }
+            File target = new File(ExtensionRuntime.root(this), id);
+            File failed = new File(getCacheDir(), "failed-extension-" + id);
+            if (target.exists() && !target.renameTo(failed)) { detail.setText("تعذر نقل النسخة الحالية."); return; }
+            if (!latest.renameTo(target)) { if (failed.exists()) failed.renameTo(target); detail.setText("فشلت الاستعادة؛ لم نحذف النسخة الحالية."); return; }
+            ExtensionState.setEnabled(this, id, true);
+            ExtensionState.clearRecovery(this);
+            detail.setText("تمت استعادة النسخة السابقة. أعد تشغيل التطبيق عند الحاجة.");
+        });
+        Button delete = new Button(this);
+        delete.setText("حذف الإضافة المتسببة");
+        page.addView(delete);
+        delete.setOnClickListener(v -> {
+            if (id.isEmpty()) { detail.setText("لا توجد إضافة محددة للحذف."); return; }
+            File target = new File(ExtensionRuntime.root(this), id);
+            if (deleteTree(target)) {
+                ExtensionState.clearRecovery(this);
+                detail.setText("تم حذف الإضافة المتسببة. يمكنك العودة إلى التطبيق.");
+            } else detail.setText("تعذر حذف الإضافة بالكامل.");
+        });
+        Button logs = new Button(this);
+        logs.setText("عرض سجل الإضافة المتسببة");
+        page.addView(logs);
+        logs.setOnClickListener(v -> {
+            String log = id.isEmpty() ? "لا توجد إضافة محددة." : ExtensionState.readLog(this, id);
+            new android.app.AlertDialog.Builder(this).setTitle("سجل الأعطال").setMessage(log).setPositiveButton("إغلاق", null).show();
+        });
+        Button back = new Button(this);
+        back.setText("العودة إلى التطبيق");
+        page.addView(back);
+        back.setOnClickListener(v -> {
+            ExtensionState.clearRecovery(this);
+            Intent home = new Intent(this, MainActivity.class);
+            home.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_NEW_TASK);
+            startActivity(home);
+            finish();
+        });
+        setContentView(page);
+    }
+
+    private boolean deleteTree(File file) {
+        if (!file.exists()) return true;
+        if (file.isDirectory()) {
+            File[] children = file.listFiles();
+            if (children != null) for (File child : children) if (!deleteTree(child)) return false;
+        }
+        return file.delete();
+    }
+}
