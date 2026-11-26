@@ -1775,6 +1775,14 @@ public class MainActivity extends Activity {
                     toast("تم اختيار: " + m.name);
                     pModels(p);
                 }));
+                if (m.image || m.audio) {
+                    boolean mediaSelected = m.id.equals(Store.mediaModel());
+                    listBox.addView(btn((mediaSelected ? "✓ " : "") + "استخدام للصور والصوت", mediaSelected ? SF2 : SF, mediaSelected ? AC : TX, v -> {
+                        Store.put("mediaModel", m.id);
+                        toast("تم اختيار نموذج الوسائط: " + m.name);
+                        pModels(p);
+                    }));
+                }
             }
             if (shown == 0 && !all.isEmpty()) listBox.addView(note("لا نتائج"));
         };
