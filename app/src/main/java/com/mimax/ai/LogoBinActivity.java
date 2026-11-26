@@ -28,7 +28,7 @@ import java.util.Locale;
 
 /** Full local MediaTek logo.bin workflow: inspect, extract, preview, replace PNG frames and repack. */
 public final class LogoBinActivity extends Activity {
-    private static final int PICK_REPLACEMENT = 9401;
+    private static final int PICK_SOURCE = 9400, PICK_REPLACEMENT = 9401;
     private File source, project;
     private LinearLayout rows;
     private TextView status;
@@ -40,13 +40,26 @@ public final class LogoBinActivity extends Activity {
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
-        String path = getIntent() == null ? null : getIntent().getStringExtra("file_path");
-        if (path == null || path.trim().isEmpty()) { finish(); return; }
-        source = new File(path);
-        project = new File(source.getAbsoluteFile().getParentFile(),
-                base(source.getName()) + "_logo_project");
         buildUi();
+        String path = getIntent() == null ? null : getIntent().getStringExtra("file_path");
+        if (path == null || path.trim().isEmpty()) pickSource();
+        else setSource(new File(path));
+    }
+
+    private void setSource(File file) {
+        if (file == null || !file.isFile() || !LogoBin.looksLike(file)) {
+            toast("الملف المحدد ليس ملف MediaTek logo.bin صالحاً");
+            return;
+        }
+        source = file;
+        project = new File(source.getAbsoluteFile().getParentFile(), base(source.getName()) + "_logo_project");
         inspectAndRender();
+    }
+
+    private void pickSource() {
+        Intent i = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        i.setType("*/*"); i.addCategory(Intent.CATEGORY_OPENABLE);
+        startActivityForResult(i, PICK_SOURCE);
     }
 
     private String base(String name) {
@@ -163,21 +176,51 @@ public final class LogoBinActivity extends Activity {
 
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
-        if (request != PICK_REPLACEMENT || result != RESULT_OK || data == null || data.getData() == null) return;
+        if (result != RESULT_OK || data == null || data.getData() == null) return;
         Uri uri = data.getData();
+        if (request == PICK_SOURCE) {
+            File imported = new File(getCacheDir(), "selected-logo-" + System.currentTimeMillis() + ".bin");
+            try (InputStream in = getContentResolver().openInputStream(uri);
+                 FileOutputStream out = new FileOutputStream(imported)) {
+                if (in == null) throw new Exception("تعذر فتح الملف المحدد");
+                byte[] b = new byte[65536]; int n;
+                while ((n = in.read(b)) != -1) out.write(b, 0, n);
+                if (!LogoBin.looksLike(imported)) throw new Exception("توقيع MediaTek LOGO غير موجود");
+                setSource(imported);
+            } catch (Exception e) { toast("تعذر فتح logo.bin: " + e.getMessage()); }
+            return;
+        }
+        if (request != PICK_REPLACEMENT || project == null || pendingName == null) return;
+        File target = new File(project, pendingName);
+        File temp = new File(project, pendingName + ".pending");
+        File backup = new File(project, pendingName + ".previous");
         try (InputStream in = getContentResolver().openInputStream(uri);
-             FileOutputStream out = new FileOutputStream(new File(project, pendingName))) {
+             FileOutputStream out = new FileOutputStream(temp)) {
             if (in == null) throw new Exception("تعذر فتح الصورة المختارة");
             byte[] b = new byte[32768]; int n;
             while ((n = in.read(b)) != -1) out.write(b, 0, n);
-            Bitmap check = BitmapFactory.decodeFile(new File(project, pendingName).getAbsolutePath());
-            if (check == null) throw new Exception("الملف المختار ليس صورة PNG صالحة");
-            check.recycle();
-            toast("تم استبدال " + pendingName + " داخل مجلد المشروع");
-            renderProject();
-        } catch (Exception e) {
-            toast("فشل استبدال الصورة: " + e.getMessage());
+        } catch (Exception e) { temp.delete(); toast("فشل استيراد الصورة: " + e.getMessage()); return; }
+        BitmapFactory.Options original = new BitmapFactory.Options(); original.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(target.getAbsolutePath(), original);
+        BitmapFactory.Options replacement = new BitmapFactory.Options(); replacement.inJustDecodeBounds = true;
+        BitmapFactory.decodeFile(temp.getAbsolutePath(), replacement);
+        if (replacement.outWidth <= 0 || replacement.outHeight <= 0) {
+            temp.delete(); toast("الملف المختار ليس صورة قابلة للقراءة"); return;
         }
+        if (original.outWidth > 0 && (original.outWidth != replacement.outWidth || original.outHeight != replacement.outHeight)) {
+            temp.delete();
+            toast("أبعاد الصورة الجديدة مختلفة. يجب أن تكون " + original.outWidth + "×" + original.outHeight + " بكسل للحفاظ على توافق إطار الإقلاع.");
+            return;
+        }
+        if (backup.exists()) backup.delete();
+        if (target.exists() && !target.renameTo(backup)) { temp.delete(); toast("تعذر حفظ نسخة من الصورة الأصلية"); return; }
+        if (!temp.renameTo(target)) {
+            if (backup.exists()) backup.renameTo(target);
+            temp.delete(); toast("تعذر اعتماد الصورة الجديدة؛ تمت محاولة استعادة الأصل"); return;
+        }
+        backup.delete();
+        toast("تم استبدال " + pendingName + " داخل مجلد المشروع");
+        renderProject();
     }
 
     private void repack() {
