@@ -249,9 +249,11 @@ public final class FullBackupEngine {
                     if (!itemPath.startsWith(rootPath + File.separator)) throw new Exception("مسار بيانات الملف غير آمن");
                     if (item.exists()) {
                         JSONObject m = metadata.getJSONObject(key);
-                        item.setReadable(m.optBoolean("readable", true), true);
-                        item.setWritable(m.optBoolean("writable", true), true);
-                        item.setExecutable(m.optBoolean("executable", false), true);
+                        if (item.isFile()) {
+                            item.setReadable(m.optBoolean("readable", true), true);
+                            item.setWritable(m.optBoolean("writable", true), true);
+                            item.setExecutable(m.optBoolean("executable", false), true);
+                        }
                         long modified = m.optLong("modified", item.lastModified());
                         if (modified > 0) item.setLastModified(modified);
                     }
