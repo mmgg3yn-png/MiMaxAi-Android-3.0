@@ -396,6 +396,7 @@ class FileScreen {
     void renderPlaces() {
         a.header("أماكن", true, false);
         LinearLayout p = a.page();
+        p.addView(a.row("USB", "فلاش USB / بطاقة SD", "تصفح وحدة خارجية مع حفظ إذن الوصول", v -> a.startActivity(new Intent(a, RemovableStorageActivity.class))));
         List<File> vols = new ArrayList<>();
         vols.add(Environment.getExternalStorageDirectory());
         File[] fs = a.getExternalFilesDirs(null);
