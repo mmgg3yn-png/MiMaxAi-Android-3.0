@@ -81,7 +81,9 @@ public final class Detect {
                 } else if (head.length >= 1028 && b.getInt(1024) == 0xE0F5E1E2) {
                     kind(i, "erofs", "نظام ملفات EROFS");
                     i.evidence.add("توقيع EROFS (0xE0F5E1E2) عند الإزاحة 1024");
-                    i.detail = "تم التعرف عليه لكن استخراج محتوياته غير مدعوم في هذا الإصدار (يمكن حفظ القسم كما هو).";
+                    i.evidence.add("محرك استخراج EROFS مرفق لمعمارية ARM32 وARM64");
+                    i.detail = "نظام ملفات للقراءة فقط. يمكن استخراج الملفات والمجلدات فعلياً؛ إعادة بناء EROFS تحتاج محرك إنشاء منفصل."; 
+                    i.status = VALID;
                 } else if (head.length >= 1028 && b.getInt(1024) == 0xF2F52010) {
                     kind(i, "f2fs", "نظام ملفات F2FS");
                     i.evidence.add("توقيع F2FS (0xF2F52010) عند الإزاحة 1024");
